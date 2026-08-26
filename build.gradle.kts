@@ -12,7 +12,12 @@ buildscript {
                 "org.jdom:jdom2:2.0.6.1"
             )
             eachDependency {
-                if (requested.group == "io.netty" && requested.version?.startsWith("4.1.") == true) {
+                val requestedNettyPatch = requested.version
+                    ?.takeIf { it.startsWith("4.1.") }
+                    ?.removePrefix("4.1.")
+                    ?.substringBefore(".")
+                    ?.toIntOrNull()
+                if (requested.group == "io.netty" && requested.version?.startsWith("4.1.") == true && (requestedNettyPatch == null || requestedNettyPatch < 137)) {
                     useVersion("4.1.137.Final")
                     because("Versions before 4.1.137.Final contain multiple security vulnerabilities")
                 }
@@ -44,7 +49,12 @@ allprojects {
                 "org.jdom:jdom2:2.0.6.1"
             )
             eachDependency {
-                if (requested.group == "io.netty" && requested.version?.startsWith("4.1.") == true) {
+                val requestedNettyPatch = requested.version
+                    ?.takeIf { it.startsWith("4.1.") }
+                    ?.removePrefix("4.1.")
+                    ?.substringBefore(".")
+                    ?.toIntOrNull()
+                if (requested.group == "io.netty" && requested.version?.startsWith("4.1.") == true && (requestedNettyPatch == null || requestedNettyPatch < 137)) {
                     useVersion("4.1.137.Final")
                     because("Versions before 4.1.137.Final contain multiple security vulnerabilities")
                 }
