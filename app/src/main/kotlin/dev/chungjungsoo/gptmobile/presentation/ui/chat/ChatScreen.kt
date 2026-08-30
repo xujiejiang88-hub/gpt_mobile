@@ -1064,7 +1064,14 @@ private fun CameraCropDialog(
                                 )
                                 imageBounds = newBounds
                                 if (selection == null) {
-                                    selection = newBounds.inset(newBounds.width * 0.06f, newBounds.height * 0.06f)
+                                    val insetX = newBounds.width * 0.06f
+                                    val insetY = newBounds.height * 0.06f
+                                    selection = Rect(
+                                        newBounds.left + insetX,
+                                        newBounds.top + insetY,
+                                        newBounds.right - insetX,
+                                        newBounds.bottom - insetY
+                                    )
                                 }
                             }
                     ) {
