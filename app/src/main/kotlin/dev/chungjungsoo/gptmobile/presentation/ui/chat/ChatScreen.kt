@@ -5,13 +5,18 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.RectF
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -19,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -75,6 +81,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
@@ -85,6 +94,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
@@ -92,6 +102,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider.getUriForFile
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -115,6 +127,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -796,12 +810,14 @@ fun ChatInputBox(
     }
 
     var pendingCameraFile by remember { mutableStateOf<File?>(null) }
+    var cropCameraFile by remember { mutableStateOf<File?>(null) }
+    var isCropping by remember { mutableStateOf(false) }
     val takePictureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         pendingCameraFile?.let { file ->
             if (success) {
-                onFileSelected(file.absolutePath)
+                cropCameraFile = file
             } else {
                 file.delete()
             }
@@ -917,12 +933,204 @@ fun ChatInputBox(
                 }
             }
         )
+
+        cropCameraFile?.let { file ->
+            CameraCropDialog(
+                file = file,
+                isProcessing = isCropping,
+                onCancel = {
+                    if (!isCropping) {
+                        file.delete()
+                        cropCameraFile = null
+                    }
+                },
+                onConfirm = { cropBounds ->
+                    if (!isCropping) {
+                        isCropping = true
+                        scope.launch(Dispatchers.IO) {
+                            val croppedFile = cropCameraImage(context, file, cropBounds)
+                            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                isCropping = false
+                                cropCameraFile = null
+                                file.delete()
+                                croppedFile?.let { onFileSelected(it.absolutePath) }
+                                    ?: Toast.makeText(context, R.string.camera_capture_failed, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+            )
+        }
     }
 }
 
 private fun Context.createCameraImageFile(): File {
     val storageDir = File(filesDir, "camera_images").apply { mkdirs() }
     return File.createTempFile("CAMERA_${System.currentTimeMillis()}_", ".jpg", storageDir)
+}
+
+private fun cropCameraImage(context: Context, sourceFile: File, cropBounds: RectF): File? {
+    val source = BitmapFactory.decodeFile(sourceFile.absolutePath) ?: return null
+    return try {
+        val left = cropBounds.left.toInt().coerceIn(0, source.width - 1)
+        val top = cropBounds.top.toInt().coerceIn(0, source.height - 1)
+        val right = cropBounds.right.toInt().coerceIn(left + 1, source.width)
+        val bottom = cropBounds.bottom.toInt().coerceIn(top + 1, source.height)
+        val cropped = Bitmap.createBitmap(source, left, top, right - left, bottom - top)
+        val output = context.createCameraImageFile()
+        output.outputStream().use { stream ->
+            cropped.compress(Bitmap.CompressFormat.JPEG, 92, stream)
+        }
+        cropped.recycle()
+        output
+    } catch (exception: Exception) {
+        Log.e("CameraCapture", "Failed to crop camera image", exception)
+        null
+    } finally {
+        source.recycle()
+    }
+}
+
+@Composable
+private fun CameraCropDialog(
+    file: File,
+    isProcessing: Boolean,
+    onCancel: () -> Unit,
+    onConfirm: (RectF) -> Unit
+) {
+    val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
+    var imageBounds by remember { mutableStateOf(Rect.Zero) }
+    var selection by remember { mutableStateOf<Rect?>(null) }
+    var dragStart by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
+
+    Dialog(
+        onDismissRequest = onCancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.9f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, top = 12.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        modifier = Modifier.weight(1f),
+                        text = stringResource(R.string.camera_crop_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    androidx.compose.material3.TextButton(enabled = !isProcessing, onClick = onCancel) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+
+                if (bitmap == null) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.camera_capture_failed))
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .onSizeChanged { size ->
+                                val scale = minOf(size.width.toFloat() / bitmap.width, size.height.toFloat() / bitmap.height)
+                                val width = bitmap.width * scale
+                                val height = bitmap.height * scale
+                                imageBounds = Rect(
+                                    (size.width - width) / 2f,
+                                    (size.height - height) / 2f,
+                                    (size.width + width) / 2f,
+                                    (size.height + height) / 2f
+                                )
+                            }
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = stringResource(R.string.camera_crop_title),
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(imageBounds) {
+                                    detectDragGestures(
+                                        onDragStart = { start ->
+                                            dragStart = start
+                                            selection = Rect(start, start)
+                                        },
+                                        onDragCancel = { dragStart = null },
+                                        onDragEnd = { dragStart = null },
+                                        onDrag = { change, _ ->
+                                            change.consume()
+                                            dragStart?.let { start ->
+                                                val current = androidx.compose.ui.geometry.Offset(
+                                                    change.position.x.coerceIn(imageBounds.left, imageBounds.right),
+                                                    change.position.y.coerceIn(imageBounds.top, imageBounds.bottom)
+                                                )
+                                                selection = Rect(
+                                                    minOf(start.x, current.x),
+                                                    minOf(start.y, current.y),
+                                                    maxOf(start.x, current.x),
+                                                    maxOf(start.y, current.y)
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                        ) {
+                            val selected = selection ?: imageBounds
+                            drawRect(Color.Black.copy(alpha = 0.52f))
+                            drawRect(
+                                color = Color.Transparent,
+                                topLeft = androidx.compose.ui.geometry.Offset(selected.left, selected.top),
+                                size = androidx.compose.ui.geometry.Size(selected.width, selected.height),
+                                blendMode = androidx.compose.ui.graphics.BlendMode.Clear
+                            )
+                            drawRect(
+                                color = Color.White,
+                                topLeft = androidx.compose.ui.geometry.Offset(selected.left, selected.top),
+                                size = androidx.compose.ui.geometry.Size(selected.width, selected.height),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                ) {
+                    androidx.compose.material3.Button(
+                        enabled = bitmap != null && !isProcessing && imageBounds.width > 1f,
+                        onClick = {
+                            val selected = selection ?: imageBounds
+                            onConfirm(
+                                RectF(
+                                    ((selected.left - imageBounds.left) / imageBounds.width * bitmap!!.width).coerceAtLeast(0f),
+                                    ((selected.top - imageBounds.top) / imageBounds.height * bitmap.height).coerceAtLeast(0f),
+                                    ((selected.right - imageBounds.left) / imageBounds.width * bitmap.width).coerceAtMost(bitmap.width.toFloat()),
+                                    ((selected.bottom - imageBounds.top) / imageBounds.height * bitmap.height).coerceAtMost(bitmap.height.toFloat())
+                                )
+                            )
+                        }
+                    ) {
+                        Text(if (isProcessing) stringResource(R.string.camera_crop_processing) else stringResource(R.string.confirm))
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
