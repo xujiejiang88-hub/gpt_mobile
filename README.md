@@ -62,6 +62,28 @@
 - 100% Kotlin, Jetpack Compose, Single Activity, [Modern App Architecture](https://developer.android.com/topic/architecture#modern-app-architecture) in Android developers documentation
 
 
+## 本次改进：拍照后 Google 风格裁剪
+
+本 Fork 增加了面向题目拍摄的相机和图片截取功能，方便只把需要识别的区域发送给模型。
+
+- 在聊天界面直接调用相机拍照
+- 拍照后显示完整预览，点击右上角裁剪图标进入裁剪模式
+- 裁剪模式下选区外自动变暗，选区四角使用白色标记显示
+- 支持拖动四个角调整选区大小，也支持拖动选区整体移动
+- 点击“附加”后才确认图片并加入聊天附件，取消时自动清理临时文件
+- 支持中文裁剪界面
+
+### 中转站配置说明
+
+部分中转站只提供 OpenAI Chat Completions 接口，不提供 Responses 接口。此类服务请在应用中选择“自定义提供商”或“OpenAI Compatible”，并将 API 地址填写为：
+
+```text
+https://ai.gs88.shop/v1/
+```
+
+不要在公开仓库、截图或 issue 中提交 API Key。
+
+
 ## Agent documentation
 
 See [Agent tools, privacy, and security](docs/agent-tools.md) and the [0.8.0 release notes](docs/release-notes-v0.8.0.md).
