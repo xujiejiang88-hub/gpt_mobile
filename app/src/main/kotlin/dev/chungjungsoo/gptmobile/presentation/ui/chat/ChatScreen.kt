@@ -43,6 +43,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
@@ -794,6 +795,43 @@ fun ChatInputBox(
         }
     }
 
+    var pendingCameraFile by remember { mutableStateOf<File?>(null) }
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        pendingCameraFile?.let { file ->
+            if (success) {
+                onFileSelected(file.absolutePath)
+            } else {
+                file.delete()
+            }
+        }
+        pendingCameraFile = null
+    }
+
+    fun launchCamera() {
+        try {
+            val file = context.createCameraImageFile()
+            pendingCameraFile = file
+            takePictureLauncher.launch(getUriForFile(context, "${context.packageName}.fileprovider", file))
+        } catch (exception: Exception) {
+            Log.e("CameraCapture", "Failed to launch camera", exception)
+            pendingCameraFile?.delete()
+            pendingCameraFile = null
+            Toast.makeText(context, R.string.camera_capture_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            launchCamera()
+        } else {
+            Toast.makeText(context, R.string.camera_permission_required, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -828,6 +866,21 @@ fun ChatInputBox(
                         Icon(
                             imageVector = ImageVector.vectorResource(R.drawable.ic_attach_file),
                             contentDescription = stringResource(R.string.attach_file)
+                        )
+                    }
+                    IconButton(
+                        enabled = chatEnabled,
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                launchCamera()
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = stringResource(R.string.take_photo)
                         )
                     }
                     Box(
@@ -865,6 +918,11 @@ fun ChatInputBox(
             }
         )
     }
+}
+
+private fun Context.createCameraImageFile(): File {
+    val storageDir = File(filesDir, "camera_images").apply { mkdirs() }
+    return File.createTempFile("CAMERA_${System.currentTimeMillis()}_", ".jpg", storageDir)
 }
 
 @Composable

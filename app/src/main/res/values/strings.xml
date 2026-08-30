@@ -515,4 +515,7 @@
     <string name="capability_thinking">Thinking</string>
     <string name="local_network_permission_required">Local network access is required for this provider or MCP connection.</string>
     <string name="local_network_check_failed">Could not check MCP network access. Local network permission will be requested as a precaution.</string>
+    <string name="take_photo">Take photo</string>
+    <string name="camera_permission_required">Camera permission is required to take a photo.</string>
+    <string name="camera_capture_failed">Could not open the camera.</string>
 </resources>
