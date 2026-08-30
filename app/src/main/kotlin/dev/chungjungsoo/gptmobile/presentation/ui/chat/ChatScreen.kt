@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -50,7 +51,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Edit
@@ -78,14 +81,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ClipEntry
@@ -1000,8 +1007,11 @@ private fun CameraCropDialog(
 ) {
     val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
     var imageBounds by remember { mutableStateOf(Rect.Zero) }
+    var cropEnabled by remember { mutableStateOf(false) }
     var selection by remember { mutableStateOf<Rect?>(null) }
-    var dragStart by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
+    var dragMode by remember { mutableStateOf(CropDragMode.None) }
+    val currentSelection = rememberUpdatedState(selection)
+    val currentDragMode = rememberUpdatedState(dragMode)
 
     Dialog(
         onDismissRequest = onCancel,
@@ -1009,25 +1019,27 @@ private fun CameraCropDialog(
     ) {
         androidx.compose.material3.Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.9f)
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp)
+                .fillMaxSize(),
+            color = Color.Black
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 20.dp, top = 12.dp, end = 8.dp),
+                        .height(72.dp)
+                        .padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        modifier = Modifier.weight(1f),
-                        text = stringResource(R.string.camera_crop_title),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    androidx.compose.material3.TextButton(enabled = !isProcessing, onClick = onCancel) {
-                        Text(stringResource(R.string.cancel))
+                    IconButton(enabled = !isProcessing, onClick = onCancel) {
+                        Icon(Icons.Default.Close, stringResource(R.string.cancel), tint = Color.White)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(enabled = !isProcessing, onClick = { cropEnabled = !cropEnabled }) {
+                        Icon(
+                            Icons.Default.Crop,
+                            stringResource(R.string.camera_crop_title),
+                            tint = if (cropEnabled) Color(0xFF9FC2FF) else Color.White
+                        )
                     }
                 }
 
@@ -1044,12 +1056,16 @@ private fun CameraCropDialog(
                                 val scale = minOf(size.width.toFloat() / bitmap.width, size.height.toFloat() / bitmap.height)
                                 val width = bitmap.width * scale
                                 val height = bitmap.height * scale
-                                imageBounds = Rect(
+                                val newBounds = Rect(
                                     (size.width - width) / 2f,
                                     (size.height - height) / 2f,
                                     (size.width + width) / 2f,
                                     (size.height + height) / 2f
                                 )
+                                imageBounds = newBounds
+                                if (selection == null) {
+                                    selection = newBounds.inset(newBounds.width * 0.06f, newBounds.height * 0.06f)
+                                }
                             }
                     ) {
                         Image(
@@ -1061,46 +1077,29 @@ private fun CameraCropDialog(
                         androidx.compose.foundation.Canvas(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .pointerInput(imageBounds) {
+                                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                .pointerInput(imageBounds, cropEnabled) {
                                     detectDragGestures(
                                         onDragStart = { start ->
-                                            dragStart = start
-                                            selection = Rect(start, start)
+                                            if (!cropEnabled) return@detectDragGestures
+                                            val current = currentSelection.value ?: imageBounds
+                                            dragMode = current.dragModeFor(start)
                                         },
-                                        onDragCancel = { dragStart = null },
-                                        onDragEnd = { dragStart = null },
-                                        onDrag = { change, _ ->
+                                        onDragCancel = { dragMode = CropDragMode.None },
+                                        onDragEnd = { dragMode = CropDragMode.None },
+                                        onDrag = { change, dragAmount ->
                                             change.consume()
-                                            dragStart?.let { start ->
-                                                val current = androidx.compose.ui.geometry.Offset(
-                                                    change.position.x.coerceIn(imageBounds.left, imageBounds.right),
-                                                    change.position.y.coerceIn(imageBounds.top, imageBounds.bottom)
-                                                )
-                                                selection = Rect(
-                                                    minOf(start.x, current.x),
-                                                    minOf(start.y, current.y),
-                                                    maxOf(start.x, current.x),
-                                                    maxOf(start.y, current.y)
-                                                )
-                                            }
+                                            selection = currentSelection.value?.adjust(currentDragMode.value, dragAmount, imageBounds)
                                         }
                                     )
                                 }
                         ) {
                             val selected = selection ?: imageBounds
-                            drawRect(Color.Black.copy(alpha = 0.52f))
-                            drawRect(
-                                color = Color.Transparent,
-                                topLeft = androidx.compose.ui.geometry.Offset(selected.left, selected.top),
-                                size = androidx.compose.ui.geometry.Size(selected.width, selected.height),
-                                blendMode = androidx.compose.ui.graphics.BlendMode.Clear
-                            )
-                            drawRect(
-                                color = Color.White,
-                                topLeft = androidx.compose.ui.geometry.Offset(selected.left, selected.top),
-                                size = androidx.compose.ui.geometry.Size(selected.width, selected.height),
-                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
-                            )
+                            if (cropEnabled) {
+                                drawRect(Color.Black.copy(alpha = 0.55f))
+                                drawRect(Color.Transparent, androidx.compose.ui.geometry.Offset(selected.left, selected.top), androidx.compose.ui.geometry.Size(selected.width, selected.height), blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+                                drawCropCorners(selected)
+                            }
                         }
                     }
                 }
@@ -1108,13 +1107,14 @@ private fun CameraCropDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .height(96.dp)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
                 ) {
                     androidx.compose.material3.Button(
                         enabled = bitmap != null && !isProcessing && imageBounds.width > 1f,
                         onClick = {
-                            val selected = selection ?: imageBounds
+                            val selected = if (cropEnabled) selection ?: imageBounds else imageBounds
                             onConfirm(
                                 RectF(
                                     ((selected.left - imageBounds.left) / imageBounds.width * bitmap!!.width).coerceAtLeast(0f),
@@ -1125,12 +1125,57 @@ private fun CameraCropDialog(
                             )
                         }
                     ) {
-                        Text(if (isProcessing) stringResource(R.string.camera_crop_processing) else stringResource(R.string.confirm))
+                        Icon(Icons.Default.Check, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (isProcessing) stringResource(R.string.camera_crop_processing) else stringResource(R.string.attach_file))
                     }
                 }
             }
         }
     }
+}
+
+private enum class CropDragMode { None, Move, TopLeft, TopRight, BottomLeft, BottomRight }
+
+private fun Rect.dragModeFor(point: androidx.compose.ui.geometry.Offset): CropDragMode {
+    val radius = 56f
+    return when {
+        (point - androidx.compose.ui.geometry.Offset(left, top)).getDistance() <= radius -> CropDragMode.TopLeft
+        (point - androidx.compose.ui.geometry.Offset(right, top)).getDistance() <= radius -> CropDragMode.TopRight
+        (point - androidx.compose.ui.geometry.Offset(left, bottom)).getDistance() <= radius -> CropDragMode.BottomLeft
+        (point - androidx.compose.ui.geometry.Offset(right, bottom)).getDistance() <= radius -> CropDragMode.BottomRight
+        contains(point) -> CropDragMode.Move
+        else -> CropDragMode.None
+    }
+}
+
+private fun Rect.adjust(mode: CropDragMode, delta: androidx.compose.ui.geometry.Offset, bounds: Rect): Rect {
+    val minSize = 80f
+    return when (mode) {
+        CropDragMode.Move -> translate(delta).let { moved ->
+            val dx = when { moved.left < bounds.left -> bounds.left - moved.left; moved.right > bounds.right -> bounds.right - moved.right; else -> 0f }
+            val dy = when { moved.top < bounds.top -> bounds.top - moved.top; moved.bottom > bounds.bottom -> bounds.bottom - moved.bottom; else -> 0f }
+            moved.translate(androidx.compose.ui.geometry.Offset(dx, dy))
+        }
+        CropDragMode.TopLeft -> copy(left = (left + delta.x).coerceIn(bounds.left, right - minSize), top = (top + delta.y).coerceIn(bounds.top, bottom - minSize))
+        CropDragMode.TopRight -> copy(right = (right + delta.x).coerceIn(left + minSize, bounds.right), top = (top + delta.y).coerceIn(bounds.top, bottom - minSize))
+        CropDragMode.BottomLeft -> copy(left = (left + delta.x).coerceIn(bounds.left, right - minSize), bottom = (bottom + delta.y).coerceIn(top + minSize, bounds.bottom))
+        CropDragMode.BottomRight -> copy(right = (right + delta.x).coerceIn(left + minSize, bounds.right), bottom = (bottom + delta.y).coerceIn(top + minSize, bounds.bottom))
+        CropDragMode.None -> this
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCropCorners(rect: Rect) {
+    val length = 32f
+    val strokeWidth = 6f
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.left, rect.top), androidx.compose.ui.geometry.Offset(rect.left + length, rect.top), strokeWidth, StrokeCap.Round)
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.left, rect.top), androidx.compose.ui.geometry.Offset(rect.left, rect.top + length), strokeWidth, StrokeCap.Round)
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.right, rect.top), androidx.compose.ui.geometry.Offset(rect.right - length, rect.top), strokeWidth, StrokeCap.Round)
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.right, rect.top), androidx.compose.ui.geometry.Offset(rect.right, rect.top + length), strokeWidth, StrokeCap.Round)
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.left, rect.bottom), androidx.compose.ui.geometry.Offset(rect.left + length, rect.bottom), strokeWidth, StrokeCap.Round)
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.left, rect.bottom), androidx.compose.ui.geometry.Offset(rect.left, rect.bottom - length), strokeWidth, StrokeCap.Round)
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.right, rect.bottom), androidx.compose.ui.geometry.Offset(rect.right - length, rect.bottom), strokeWidth, StrokeCap.Round)
+    drawLine(Color.White, androidx.compose.ui.geometry.Offset(rect.right, rect.bottom), androidx.compose.ui.geometry.Offset(rect.right, rect.bottom - length), strokeWidth, StrokeCap.Round)
 }
 
 @Composable

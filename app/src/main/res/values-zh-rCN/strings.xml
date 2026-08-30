@@ -171,6 +171,8 @@
     <string name="no_search_results">未找到符合条件的会话</string>
     <string name="clear">清除</string>
     <string name="attach_file">附加文件</string>
+    <string name="camera_crop_title">裁剪图片</string>
+    <string name="camera_crop_processing">处理中...</string>
     <string name="add_platform">添加提供商</string>
     <string name="add_platform_description">自定义一个新的 API 提供商</string>
     <string name="platform_name">提供商名称</string>
