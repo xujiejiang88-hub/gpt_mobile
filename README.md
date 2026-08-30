@@ -75,10 +75,10 @@
 
 ### 中转站配置说明
 
-部分中转站只提供 OpenAI Chat Completions 接口，不提供 Responses 接口。此类服务请在应用中选择“自定义提供商”或“OpenAI Compatible”，并将 API 地址填写为：
+部分中转站只提供 OpenAI Chat Completions 接口，不提供 Responses 接口。此类服务请在应用中选择“自定义提供商”或“OpenAI Compatible”，并填写该服务提供的 API 地址：
 
 ```text
-https://ai.gs88.shop/v1/
+https://你的中转站地址/v1/
 ```
 
 不要在公开仓库、截图或 issue 中提交 API Key。
