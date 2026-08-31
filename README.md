@@ -73,9 +73,9 @@
 - 100% Kotlin, Jetpack Compose, Single Activity, [Modern App Architecture](https://developer.android.com/topic/architecture#modern-app-architecture) in Android developers documentation
 
 
-## 本次改进：拍照后 Google 风格裁剪
+## 本次改进：拍摄后 Google 风格裁剪
 
-本 Fork 增加了面向题目拍摄的相机和图片截取功能，方便只把需要识别的区域发送给模型。
+本 Fork 增加了针对拍摄问题的相机和图片截取功能，方便只把需要识别的区域发送给模型。
 
 - 在聊天界面直接调用相机拍照
 - 拍照后显示完整预览，点击右上角裁剪图标进入裁剪模式
