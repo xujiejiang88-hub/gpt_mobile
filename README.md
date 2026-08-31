@@ -61,9 +61,13 @@
 - 100% Kotlin, Jetpack Compose, Single Activity, [Modern App Architecture](https://developer.android.com/topic/architecture#modern-app-architecture) in Android developers documentation
 
 
-## 本次改进：拍摄后 Google 风格裁剪
+## 本 Fork 更新说明（基于原作者 0.8）
 
-相较原作者原版，本 Fork 增加了针对拍摄问题的相机和图片截取功能，方便只把需要识别的区域发送给模型。
+感谢原作者 [Taewan-P](https://github.com/Taewan-P) 开源 GPT Mobile。本项目基于原作者的 0.8 版本继续维护，并在原有功能基础上进行改进。
+
+### 本次改进：拍摄后 Google 风格裁剪
+
+新增针对拍摄问题的相机和图片截取功能，方便只把需要识别的区域发送给模型。
 
 - 在聊天界面直接调用相机拍照
 - 拍照后显示完整预览，点击右上角裁剪图标进入裁剪模式
@@ -72,7 +76,7 @@
 - 点击“附加”后才确认图片并加入聊天附件，取消时自动清理临时文件
 - 支持中文裁剪界面
 
-### 相较原作者原版 0.8 的 1.0.1 更新
+### 1.0.1 版本更新内容
 
 - 移除本地长期记忆和本地对话摘要功能，不再保存、读取或向 API 注入记忆内容。
 - 保留当前聊天上下文，继续按提供商策略发送最近对话。
