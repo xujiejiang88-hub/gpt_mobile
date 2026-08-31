@@ -259,4 +259,21 @@
     <string name="tool_trace_status_canceled">已取消</string>
     <string name="tool_trace_status_completed">已完成</string>
     <string name="retry_tools_warning">重试可能会再次运行已分配的工具。</string>
+    <string name="interaction_settings">交互设置</string>
+    <string name="reasoning_level">推理等级</string>
+    <string name="reasoning_level_low">低</string>
+    <string name="reasoning_level_medium">中</string>
+    <string name="reasoning_level_high">高</string>
+    <string name="reasoning_level_low_description">响应更快，消耗的推理 token 更少</string>
+    <string name="reasoning_level_medium_description">质量、延迟和消耗之间的平衡</string>
+    <string name="reasoning_level_high_description">更深入的推理，但会消耗更多 token</string>
+    <string name="add_attachment">添加附件</string>
+    <string name="upload_file">选择文件</string>
+    <string name="reasoning_display">推理展示</string>
+    <string name="reasoning_display_off">关闭</string>
+    <string name="reasoning_display_status">仅显示执行状态</string>
+    <string name="reasoning_display_summary">显示推理摘要</string>
+    <string name="reasoning_language">推理语言</string>
+    <string name="reasoning_language_chinese">中文</string>
+    <string name="reasoning_language_english">English</string>
 </resources>

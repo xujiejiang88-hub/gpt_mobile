@@ -193,7 +193,8 @@ private class StreamingMessageBuffer(
         onUpdate: suspend (content: String, thoughts: String, timeline: List<AssistantTimelineItem>) -> Unit,
         publishedAtNanos: Long
     ) {
-        onUpdate(content.toString(), thoughts.toString(), timeline.toList())
+        val normalized = normalizeExplicitReasoning(content.toString(), thoughts.toString(), timeline)
+        onUpdate(normalized.content, normalized.thoughts, normalized.timeline)
         publishedContentLength = content.length
         publishedThoughtLength = thoughts.length
         publishedTimelineVersion = timelineVersion
@@ -213,6 +214,32 @@ private class StreamingMessageBuffer(
     private fun hasPendingChanges(): Boolean = content.length != publishedContentLength ||
         thoughts.length != publishedThoughtLength ||
         timelineVersion != publishedTimelineVersion
+}
+
+private data class NormalizedReasoning(
+    val content: String,
+    val thoughts: String,
+    val timeline: List<AssistantTimelineItem>
+)
+
+/** Some custom OpenAI-compatible models put an explicit <think> block in text. */
+private fun normalizeExplicitReasoning(
+    content: String,
+    thoughts: String,
+    timeline: List<AssistantTimelineItem>
+): NormalizedReasoning {
+    val taggedMatch = Regex("<(?:think(?:ing)?|analysis|reasoning)>(.*?)</(?:think(?:ing)?|analysis|reasoning)>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(content)
+    val summaryMatch = Regex("(?im)^(?:#{1,6}\\s*)?(?:推理摘要|思考摘要|reasoning\\s+summary|thinking\\s+summary)\\s*:?[ \\t]*$(?s)(.*?)$", RegexOption.MULTILINE).find(content)
+    val match = taggedMatch ?: summaryMatch ?: return NormalizedReasoning(content, thoughts, timeline)
+    val extracted = if (taggedMatch != null) match.groupValues[1].trim() else match.groupValues[1].trim()
+    val cleaned = if (taggedMatch != null) content.replace(match.value, "").trim()
+    else content.substring(0, match.range.first).trim()
+    val mergedThoughts = listOf(thoughts.trim(), extracted).filter { it.isNotBlank() }.distinct().joinToString("\\n\\n")
+    val updatedTimeline = buildList {
+        if (mergedThoughts.isNotBlank()) add(AssistantTimelineItem(AssistantTimelineItemType.THINKING, content = mergedThoughts))
+        if (cleaned.isNotBlank()) add(AssistantTimelineItem(AssistantTimelineItemType.TEXT, content = cleaned))
+    }
+    return NormalizedReasoning(cleaned, mergedThoughts, updatedTimeline)
 }
 
 private fun MutableStateFlow<ChatViewModel.GroupedMessages>.setBufferedText(

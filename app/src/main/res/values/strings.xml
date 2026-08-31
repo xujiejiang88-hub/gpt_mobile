@@ -522,4 +522,21 @@
     <string name="camera_capture_failed">Could not open the camera.</string>
     <string name="camera_crop_title">Select the question area</string>
     <string name="camera_crop_processing">Processing...</string>
+    <string name="interaction_settings">Interaction settings</string>
+    <string name="reasoning_level">Reasoning level</string>
+    <string name="reasoning_level_low">Low</string>
+    <string name="reasoning_level_medium">Medium</string>
+    <string name="reasoning_level_high">High</string>
+    <string name="reasoning_level_low_description">Faster responses and lower token usage</string>
+    <string name="reasoning_level_medium_description">Balanced quality, latency, and cost</string>
+    <string name="reasoning_level_high_description">Deeper reasoning with higher token usage</string>
+    <string name="add_attachment">Add attachment</string>
+    <string name="upload_file">Choose file</string>
+    <string name="reasoning_display">Reasoning display</string>
+    <string name="reasoning_display_off">Off</string>
+    <string name="reasoning_display_status">Execution status only</string>
+    <string name="reasoning_display_summary">Reasoning summary</string>
+    <string name="reasoning_language">Reasoning language</string>
+    <string name="reasoning_language_chinese">中文</string>
+    <string name="reasoning_language_english">English</string>
 </resources>

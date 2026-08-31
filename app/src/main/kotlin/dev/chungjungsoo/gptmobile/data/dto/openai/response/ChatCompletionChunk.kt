@@ -47,6 +47,12 @@ data class Delta(
     @SerialName("reasoning")
     val reasoning: String? = null,
 
+    @SerialName("reasoning_content")
+    val reasoningContent: String? = null,
+
+    @SerialName("analysis")
+    val analysis: String? = null,
+
     @SerialName("tool_calls")
     val toolCalls: List<ChatToolCallDelta>? = null
 )

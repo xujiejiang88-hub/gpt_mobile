@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.chungjungsoo.gptmobile.data.model.ApiType
 import dev.chungjungsoo.gptmobile.data.model.DynamicTheme
 import dev.chungjungsoo.gptmobile.data.model.ThemeMode
+import dev.chungjungsoo.gptmobile.data.model.ReasoningDisplayMode
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLanguage
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -68,6 +70,8 @@ class SettingDataSourceImpl @Inject constructor(
     )
     private val dynamicThemeKey = intPreferencesKey("dynamic_mode")
     private val themeModeKey = intPreferencesKey("theme_mode")
+    private val reasoningDisplayModeKey = intPreferencesKey("reasoning_display_mode")
+    private val reasoningLanguageKey = intPreferencesKey("reasoning_language")
 
     override suspend fun updateDynamicTheme(theme: DynamicTheme) {
         dataStore.edit { pref ->
@@ -79,6 +83,14 @@ class SettingDataSourceImpl @Inject constructor(
         dataStore.edit { pref ->
             pref[themeModeKey] = themeMode.ordinal
         }
+    }
+
+    override suspend fun updateReasoningDisplayMode(mode: ReasoningDisplayMode) {
+        dataStore.edit { pref -> pref[reasoningDisplayModeKey] = mode.ordinal }
+    }
+
+    override suspend fun updateReasoningLanguage(language: ReasoningLanguage) {
+        dataStore.edit { pref -> pref[reasoningLanguageKey] = language.ordinal }
     }
 
     override suspend fun updateStatus(apiType: ApiType, status: Boolean) {
@@ -144,6 +156,14 @@ class SettingDataSourceImpl @Inject constructor(
 
         return ThemeMode.getByValue(mode)
     }
+
+    override suspend fun getReasoningDisplayMode(): ReasoningDisplayMode? = dataStore.data.map { pref ->
+        pref[reasoningDisplayModeKey]
+    }.first()?.let(ReasoningDisplayMode::getByValue)
+
+    override suspend fun getReasoningLanguage(): ReasoningLanguage? = dataStore.data.map { pref ->
+        pref[reasoningLanguageKey]
+    }.first()?.let(ReasoningLanguage::getByValue)
 
     override suspend fun getStatus(apiType: ApiType): Boolean? = dataStore.data.map { pref ->
         pref[apiStatusMap[apiType]!!]

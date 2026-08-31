@@ -102,6 +102,8 @@ fun OpponentChatBubble(
     text: String,
     thoughts: String = "",
     timeline: List<AssistantTimelineItem> = emptyList(),
+    showThinkingSummary: Boolean = true,
+    showThinkingStatus: Boolean = true,
     attachments: List<String> = emptyList(),
     agentRun: AgentRun? = null,
     runNotices: List<ChatRunNotice> = emptyList(),
@@ -123,17 +125,28 @@ fun OpponentChatBubble(
         timelineNotices = timelineNoticeMessages(timeline),
         isRunActive = isLoading
     )
-    val contentTimeline = timeline.filter { it.type != AssistantTimelineItemType.NOTICE }
+    val contentTimeline = timeline.filter {
+        it.type != AssistantTimelineItemType.NOTICE &&
+            (showThinkingSummary || it.type != AssistantTimelineItemType.THINKING)
+    }
+    // Streaming updates reuse the live markdown state. Once the provider finishes,
+    // switch to a one-time final identity so the complete answer is parsed and laid
+    // out from scratch, removing partial-token and formula placeholder state.
+    val answerRenderIdentity = if (isLoading) contentIdentity else "$contentIdentity:final"
 
     Column(modifier = modifier) {
-        RunNoticeChips(
-            notices = noticeMessages,
-            modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)
-        )
-        AgentRunStatusBlock(
-            run = agentRun,
-            modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)
-        )
+        if (showThinkingStatus) {
+            RunNoticeChips(
+                notices = noticeMessages,
+                modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)
+            )
+        }
+        if (showThinkingStatus) {
+            AgentRunStatusBlock(
+                run = agentRun,
+                modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)
+            )
+        }
 
         Column {
             val hasUnavailableOrder = hasUnavailableAssistantOrder(
@@ -154,7 +167,7 @@ fun OpponentChatBubble(
                             timeline = contentTimeline,
                             toolEvents = toolEvents,
                             isLoading = isLoading,
-                            contentIdentity = contentIdentity
+                            contentIdentity = answerRenderIdentity
                         )
                         MessageFileThumbnailRow(
                             files = attachments,
@@ -166,11 +179,11 @@ fun OpponentChatBubble(
             } else {
                 LegacyAssistantContent(
                     text = text,
-                    thoughts = thoughts,
+                    thoughts = thoughts.takeIf { showThinkingSummary }.orEmpty(),
                     toolEvents = toolEvents,
                     attachments = attachments,
                     isLoading = isLoading,
-                    contentIdentity = contentIdentity,
+                    contentIdentity = answerRenderIdentity,
                     showOrderNotice = hasUnavailableOrder
                 )
             }
@@ -322,11 +335,12 @@ private fun LegacyAssistantContent(
         shadowElevation = 6.dp
     ) {
         Column {
-            ChatMarkdown(
-                content = if (isLoading) text + "●" else text,
-                contentIdentity = contentIdentity,
-                modifier = Modifier.padding(16.dp)
-            )
+                ChatMarkdown(
+                    content = if (isLoading) text + "●" else text,
+                    contentIdentity = contentIdentity,
+                    modifier = Modifier.padding(16.dp),
+                    enableMath = true
+                )
             MessageFileThumbnailRow(
                 files = attachments,
                 usePrimaryColors = false,

@@ -174,6 +174,14 @@ class PlatformSettingViewModel @Inject constructor(
         }
     }
 
+    fun updateReasoningLevel(level: dev.chungjungsoo.gptmobile.data.model.ReasoningLevel) {
+        _platformState.value?.let { updatePlatform(it.copy(reasoningLevel = level.name)) }
+        closeReasoningLevelDialog()
+    }
+
+    fun openReasoningLevelDialog() = _dialogState.update { it.copy(isReasoningLevelDialogOpen = true) }
+    fun closeReasoningLevelDialog() = _dialogState.update { it.copy(isReasoningLevelDialogOpen = false) }
+
     fun updatePlatform(platform: PlatformV2) {
         viewModelScope.launch {
             settingRepository.updatePlatformV2(platform)
@@ -515,6 +523,7 @@ class PlatformSettingViewModel @Inject constructor(
         val isSystemPromptDialogOpen: Boolean = false,
         val isTimeoutDialogOpen: Boolean = false,
         val isGeminiSafetyDialogOpen: Boolean = false,
+        val isReasoningLevelDialogOpen: Boolean = false,
         val isDeleteDialogOpen: Boolean = false
     )
 

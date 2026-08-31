@@ -72,6 +72,7 @@ import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
 import dev.chungjungsoo.gptmobile.presentation.theme.frostedContainerColor
 import dev.chungjungsoo.gptmobile.data.localruntime.LocalAccelerators
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLevel
 import dev.chungjungsoo.gptmobile.presentation.common.RadioItem
 import dev.chungjungsoo.gptmobile.presentation.common.SettingItem
 import dev.chungjungsoo.gptmobile.util.formatPlatformTimeout
@@ -340,6 +341,16 @@ fun PlatformSettingScreen(
                         isChecked = platformData.reasoning,
                         onCheckedChange = { settingViewModel.toggleReasoning() }
                     )
+                    if (platformData.reasoning) {
+                        SettingItem(
+                            title = stringResource(R.string.reasoning_level),
+                            description = reasoningLevelLabel(platformData.reasoningLevel),
+                            enabled = platformData.enabled,
+                            onItemClick = settingViewModel::openReasoningLevelDialog,
+                            showTrailingIcon = true,
+                            showLeadingIcon = false
+                        )
+                    }
                 }
                 SettingItem(
                     title = stringResource(R.string.search_backend),
@@ -402,6 +413,7 @@ fun PlatformSettingScreen(
                 TopPDialog(dialogState, platformData.topP, settingViewModel)
                 SystemPromptDialog(dialogState, platformData.systemPrompt ?: "", settingViewModel)
                 GeminiSafetySettingsDialog(dialogState, platformData, settingViewModel)
+                ReasoningLevelDialog(dialogState, platformData.reasoningLevel, settingViewModel)
                 DeletePlatformDialog(dialogState, settingViewModel)
                 SearchBackendDialog(toolBindingState, settingViewModel)
                 McpToolsDialog(toolBindingState, settingViewModel)
@@ -680,6 +692,12 @@ private fun PreferenceListSwitch(
             )
         }
     }
+}
+
+private fun reasoningLevelLabel(value: String): String = when (value.uppercase()) {
+    ReasoningLevel.LOW.name -> "Low"
+    ReasoningLevel.HIGH.name -> "High"
+    else -> "Medium"
 }
 
 @Composable

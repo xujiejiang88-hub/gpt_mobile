@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -41,6 +42,10 @@ import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.data.model.DynamicTheme
 import dev.chungjungsoo.gptmobile.data.model.ThemeMode
+import dev.chungjungsoo.gptmobile.data.model.ReasoningDisplayMode
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLanguage
+import dev.chungjungsoo.gptmobile.presentation.common.LocalInteractionSetting
+import dev.chungjungsoo.gptmobile.presentation.common.LocalInteractionSettingsViewModel
 import dev.chungjungsoo.gptmobile.presentation.common.LocalDynamicTheme
 import dev.chungjungsoo.gptmobile.presentation.common.LocalThemeMode
 import dev.chungjungsoo.gptmobile.presentation.common.LocalThemeViewModel
@@ -101,6 +106,7 @@ fun SettingScreen(
                 .padding(bottom = 24.dp)
         ) {
             ThemeSetting { settingViewModel.openThemeDialog() }
+            InteractionSettingItem { settingViewModel.openInteractionDialog() }
 
             // Add Platform button
             SettingItem(
@@ -145,6 +151,10 @@ fun SettingScreen(
 
             if (dialogState.isThemeDialogOpen) {
                 ThemeSettingDialog(settingViewModel)
+            }
+
+            if (dialogState.isInteractionDialogOpen) {
+                InteractionSettingDialog(settingViewModel)
             }
 
             if (dialogState.isDeleteDialogOpen) {
@@ -206,6 +216,71 @@ fun ThemeSetting(
         onItemClick = onItemClick,
         showTrailingIcon = false,
         showLeadingIcon = false
+    )
+}
+
+@Composable
+fun InteractionSettingItem(onItemClick: () -> Unit) {
+    val settings = LocalInteractionSetting.current
+    val description = when (settings.reasoningDisplayMode) {
+        ReasoningDisplayMode.OFF -> stringResource(R.string.reasoning_display_off)
+        ReasoningDisplayMode.STATUS -> stringResource(R.string.reasoning_display_status)
+        ReasoningDisplayMode.SUMMARY -> stringResource(R.string.reasoning_display_summary)
+    }
+    SettingItem(
+        title = stringResource(R.string.interaction_settings),
+        description = description,
+        onItemClick = onItemClick,
+        showTrailingIcon = true,
+        showLeadingIcon = false
+    )
+}
+
+@Composable
+fun InteractionSettingDialog(settingViewModel: SettingViewModelV2 = hiltViewModel()) {
+    val settings = LocalInteractionSetting.current
+    val interactionViewModel = LocalInteractionSettingsViewModel.current
+    AlertDialog(
+        title = { Text(stringResource(R.string.interaction_settings)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(text = stringResource(R.string.reasoning_display), style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                ReasoningDisplayMode.entries.forEach { mode ->
+                    RadioItem(
+                        title = when (mode) {
+                            ReasoningDisplayMode.OFF -> stringResource(R.string.reasoning_display_off)
+                            ReasoningDisplayMode.STATUS -> stringResource(R.string.reasoning_display_status)
+                            ReasoningDisplayMode.SUMMARY -> stringResource(R.string.reasoning_display_summary)
+                        },
+                        description = null,
+                        value = mode.name,
+                        selected = settings.reasoningDisplayMode == mode
+                    ) { interactionViewModel.updateDisplayMode(mode) }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = stringResource(R.string.reasoning_language), style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                ReasoningLanguage.entries.forEach { language ->
+                    RadioItem(
+                        title = if (language == ReasoningLanguage.CHINESE) {
+                            stringResource(R.string.reasoning_language_chinese)
+                        } else {
+                            stringResource(R.string.reasoning_language_english)
+                        },
+                        description = null,
+                        value = language.name,
+                        selected = settings.reasoningLanguage == language
+                    ) { interactionViewModel.updateLanguage(language) }
+                }
+            }
+        },
+        onDismissRequest = settingViewModel::closeInteractionDialog,
+        confirmButton = {
+            TextButton(onClick = settingViewModel::closeInteractionDialog) {
+                Text(stringResource(R.string.confirm))
+            }
+        }
     )
 }
 

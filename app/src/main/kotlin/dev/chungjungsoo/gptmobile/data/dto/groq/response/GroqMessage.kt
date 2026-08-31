@@ -12,5 +12,8 @@ data class GroqMessage(
     val content: String? = null,
 
     @SerialName("reasoning")
-    val reasoning: String? = null
+    val reasoning: String? = null,
+
+    @SerialName("reasoning_content")
+    val reasoningContent: String? = null
 )

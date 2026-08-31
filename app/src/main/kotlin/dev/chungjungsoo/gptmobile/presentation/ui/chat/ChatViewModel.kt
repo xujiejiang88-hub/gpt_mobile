@@ -42,6 +42,9 @@ import dev.chungjungsoo.gptmobile.data.repository.LocalModelRepository
 import dev.chungjungsoo.gptmobile.data.repository.ModelCatalogRepository
 import dev.chungjungsoo.gptmobile.data.repository.SettingRepository
 import dev.chungjungsoo.gptmobile.data.repository.ToolConnectionRepository
+import dev.chungjungsoo.gptmobile.data.model.ReasoningDisplayMode
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLanguage
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLevel
 import dev.chungjungsoo.gptmobile.presentation.StartupRecoveryGate
 import dev.chungjungsoo.gptmobile.presentation.ui.setup.DownloadedLocalModelOption
 import dev.chungjungsoo.gptmobile.util.AttachmentPayloadCache
@@ -79,7 +82,7 @@ class ChatViewModel @Inject constructor(
     private val agentRunCoordinator: AgentRunCoordinator,
     private val toolConnectionRepository: ToolConnectionRepository,
     private val localModelRepository: LocalModelRepository,
-    private val modelCatalogRepository: ModelCatalogRepository
+    private val modelCatalogRepository: ModelCatalogRepository,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -249,6 +252,23 @@ class ChatViewModel @Inject constructor(
 
     fun refreshLocalNetworkRequirement() {
         fetchEnabledPlatformsInApp()
+    }
+
+    fun updateReasoningLevel(level: ReasoningLevel) {
+        val selectedUids = enabledPlatformsInChat.toSet()
+        viewModelScope.launch {
+            val updated = _platformsInApp.value.map { platform ->
+                if (platform.uid in selectedUids && platform.reasoning) {
+                    val next = platform.copy(reasoningLevel = level.name)
+                    settingRepository.updatePlatformV2(next)
+                    next
+                } else {
+                    platform
+                }
+            }
+            _platformsInApp.value = updated
+            _enabledPlatformsInApp.value = updated.filter { it.enabled }
+        }
     }
 
     override fun onCleared() {
@@ -638,8 +658,16 @@ class ChatViewModel @Inject constructor(
         val turnIndex = _groupedMessages.value.assistantMessages.lastIndex
 
         viewModelScope.launch {
+            val interactionSettings = settingRepository.fetchInteractionSettings()
             val platforms = resolveSelectedPlatforms(enabledPlatformsInChat, _platformsInApp.value)
-                .map { IndexedValue(it.index, resolvePlatformModel(it.value)) }
+                .map {
+                    IndexedValue(
+                        it.index,
+                        resolvePlatformModel(it.value)
+                            .withReasoningLanguage(interactionSettings)
+                            .withResponseFormat()
+                    )
+                }
             val unavailableIndexes = enabledPlatformsInChat.indices - platforms.mapTo(mutableSetOf()) { it.index }
             _loadingStates.update { states ->
                 states.toMutableList().apply {
@@ -1183,6 +1211,25 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+}
+
+private fun PlatformV2.withReasoningLanguage(settings: dev.chungjungsoo.gptmobile.data.dto.InteractionSetting): PlatformV2 {
+    if (!reasoning) return this
+    val instruction = when (settings.reasoningLanguage) {
+        ReasoningLanguage.CHINESE ->
+            "If the provider exposes a reasoning summary field, use Chinese for that field. Keep reasoning summaries out of the final answer; never reveal hidden chain-of-thought or internal drafts."
+
+        ReasoningLanguage.ENGLISH ->
+            "If the provider exposes a reasoning summary field, use English for that field. Keep reasoning summaries out of the final answer; never reveal hidden chain-of-thought or internal drafts."
+    }
+    val prompt = systemPrompt?.takeIf { it.isNotBlank() }
+    return copy(systemPrompt = listOfNotNull(prompt, instruction).joinToString("\n\n"))
+}
+
+private fun PlatformV2.withResponseFormat(): PlatformV2 {
+    val instruction = "Do not include reasoning summaries, hidden chain-of-thought, or self-analysis in the final answer. For mathematical content, use Markdown LaTeX delimiters: inline \\( ... \\), display \\[ ... \\] or $$ ... $$; keep each display formula on its own line with blank lines around it."
+    val prompt = systemPrompt?.takeIf { it.isNotBlank() }
+    return copy(systemPrompt = listOfNotNull(prompt, instruction).joinToString("\n\n"))
 }
 
 data class ChatRunNotice(

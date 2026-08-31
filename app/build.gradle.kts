@@ -23,8 +23,8 @@ extensions.configure<ApplicationExtension> {
         applicationId = "dev.chungjungsoo.gptmobile"
         minSdk = 31
         targetSdk = 37
-        versionCode = 27
-        versionName = "0.8.4-orange-controls"
+        versionCode = 30
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

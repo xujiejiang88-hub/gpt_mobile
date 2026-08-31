@@ -3,6 +3,7 @@ package dev.chungjungsoo.gptmobile.presentation.ui.chat
 private const val INLINE_MATH_PLACEHOLDER_PREFIX = "CHAT_MATH_INLINE_"
 private const val INLINE_MATH_PLACEHOLDER_SUFFIX = "_TOKEN"
 private const val MAX_FENCE_INDENT = 3
+private const val MAX_RENDERED_FORMULA_CHARS = 420
 
 data class ParsedChatMarkdown(
     val blocks: List<ChatMarkdownBlock>,
@@ -20,7 +21,13 @@ data class InlineMathToken(
     val tex: String
 )
 
-fun parseChatMarkdown(content: String): ParsedChatMarkdown {
+fun parseChatMarkdown(content: String, enableMath: Boolean = true): ParsedChatMarkdown {
+    if (!enableMath) {
+        return ParsedChatMarkdown(
+            blocks = listOf(ChatMarkdownBlock.Markdown(content)),
+            inlineMath = emptyList()
+        )
+    }
     val blocks = mutableListOf<ChatMarkdownBlock>()
     val inlineMath = mutableListOf<InlineMathToken>()
     val markdownBuffer = StringBuilder()
@@ -135,6 +142,11 @@ private fun replaceInlineMath(
             val end = findClosingDelimiter(content, index + 2, "\\)")
             if (end != -1) {
                 val tex = content.substring(index + 2, end)
+                if (tex.length > MAX_RENDERED_FORMULA_CHARS) {
+                    output.append(content, index, end + 2)
+                    index = end + 2
+                    continue
+                }
                 val placeholder = createPlaceholder(inlineMathIndex++)
                 tokens += InlineMathToken(placeholder = placeholder, tex = tex)
                 output.append(placeholder)
@@ -151,6 +163,11 @@ private fun replaceInlineMath(
             val end = findClosingInlineDollar(content, index + 1)
             if (end != -1) {
                 val tex = content.substring(index + 1, end)
+                if (tex.length > MAX_RENDERED_FORMULA_CHARS) {
+                    output.append(content, index, end + 1)
+                    index = end + 1
+                    continue
+                }
                 val placeholder = createPlaceholder(inlineMathIndex++)
                 tokens += InlineMathToken(placeholder = placeholder, tex = tex)
                 output.append(placeholder)

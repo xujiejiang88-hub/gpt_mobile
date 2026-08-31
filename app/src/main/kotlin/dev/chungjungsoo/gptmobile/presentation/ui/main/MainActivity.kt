@@ -25,6 +25,7 @@ import dev.chungjungsoo.gptmobile.data.agent.tool.MCP_OAUTH_SCHEME
 import dev.chungjungsoo.gptmobile.data.agent.tool.isMcpOAuthCallbackUri
 import dev.chungjungsoo.gptmobile.presentation.common.LocalDynamicTheme
 import dev.chungjungsoo.gptmobile.presentation.common.LocalThemeMode
+import dev.chungjungsoo.gptmobile.presentation.common.InteractionSettingsProvider
 import dev.chungjungsoo.gptmobile.presentation.common.Route
 import dev.chungjungsoo.gptmobile.presentation.common.SetupNavGraph
 import dev.chungjungsoo.gptmobile.presentation.common.ThemeSettingProvider
@@ -61,19 +62,21 @@ class MainActivity : ComponentActivity() {
             val isReady by mainViewModel.isReady.collectAsStateWithLifecycle()
 
             ThemeSettingProvider {
-                GPTMobileTheme(
-                    dynamicTheme = LocalDynamicTheme.current,
-                    themeMode = LocalThemeMode.current
-                ) {
-                    if (isReady) {
-                        SetupNavGraph(
-                            navController = navController,
-                            toolConnectionsViewModel = toolConnectionsViewModel,
-                            onLaunchOAuth = ::launchOAuth
-                        )
-                        LaunchedEffect(navController) {
-                            navController.checkForExistingSettings()
-                            keepSplashOnScreen = false
+                InteractionSettingsProvider {
+                    GPTMobileTheme(
+                        dynamicTheme = LocalDynamicTheme.current,
+                        themeMode = LocalThemeMode.current
+                    ) {
+                        if (isReady) {
+                            SetupNavGraph(
+                                navController = navController,
+                                toolConnectionsViewModel = toolConnectionsViewModel,
+                                onLaunchOAuth = ::launchOAuth
+                            )
+                            LaunchedEffect(navController) {
+                                navController.checkForExistingSettings()
+                                keepSplashOnScreen = false
+                            }
                         }
                     }
                 }

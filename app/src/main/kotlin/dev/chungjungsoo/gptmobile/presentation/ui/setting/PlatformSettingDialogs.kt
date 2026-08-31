@@ -40,11 +40,53 @@ import dev.chungjungsoo.gptmobile.data.localruntime.AcceleratorOption
 import dev.chungjungsoo.gptmobile.data.localruntime.AcceleratorUnavailableReason
 import dev.chungjungsoo.gptmobile.data.localruntime.LocalAccelerators
 import dev.chungjungsoo.gptmobile.data.model.GeminiSafetySettings
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLevel
 import dev.chungjungsoo.gptmobile.presentation.common.RadioItem
 import dev.chungjungsoo.gptmobile.presentation.ui.setup.DownloadedLocalModelOption
 import dev.chungjungsoo.gptmobile.presentation.ui.setup.LocalModelPicker
 import dev.chungjungsoo.gptmobile.util.isValidUrl
 import kotlin.math.roundToInt
+
+@Composable
+fun ReasoningLevelDialog(
+    dialogState: PlatformSettingViewModel.DialogState,
+    currentValue: String,
+    settingViewModel: PlatformSettingViewModel
+) {
+    if (!dialogState.isReasoningLevelDialogOpen) return
+    val selected = runCatching { ReasoningLevel.valueOf(currentValue.uppercase()) }
+        .getOrDefault(ReasoningLevel.MEDIUM)
+    AlertDialog(
+        title = { Text(stringResource(R.string.reasoning_level)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                ReasoningLevel.entries.forEach { level ->
+                    RadioItem(
+                        title = when (level) {
+                            ReasoningLevel.LOW -> stringResource(R.string.reasoning_level_low)
+                            ReasoningLevel.MEDIUM -> stringResource(R.string.reasoning_level_medium)
+                            ReasoningLevel.HIGH -> stringResource(R.string.reasoning_level_high)
+                        },
+                        description = when (level) {
+                            ReasoningLevel.LOW -> stringResource(R.string.reasoning_level_low_description)
+                            ReasoningLevel.MEDIUM -> stringResource(R.string.reasoning_level_medium_description)
+                            ReasoningLevel.HIGH -> stringResource(R.string.reasoning_level_high_description)
+                        },
+                        value = level.name,
+                        selected = selected == level,
+                        onSelected = { settingViewModel.updateReasoningLevel(level) }
+                    )
+                }
+            }
+        },
+        onDismissRequest = settingViewModel::closeReasoningLevelDialog,
+        confirmButton = {
+            TextButton(onClick = settingViewModel::closeReasoningLevelDialog) {
+                Text(stringResource(R.string.confirm))
+            }
+        }
+    )
+}
 
 @Composable
 fun PlatformNameDialog(

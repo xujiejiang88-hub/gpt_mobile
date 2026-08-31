@@ -7,10 +7,13 @@ import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.data.datastore.SettingDataSource
 import dev.chungjungsoo.gptmobile.data.dto.Platform
 import dev.chungjungsoo.gptmobile.data.dto.ThemeSetting
+import dev.chungjungsoo.gptmobile.data.dto.InteractionSetting
 import dev.chungjungsoo.gptmobile.data.model.ApiType
 import dev.chungjungsoo.gptmobile.data.model.ClientType
 import dev.chungjungsoo.gptmobile.data.model.DynamicTheme
 import dev.chungjungsoo.gptmobile.data.model.ThemeMode
+import dev.chungjungsoo.gptmobile.data.model.ReasoningDisplayMode
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLanguage
 import dev.chungjungsoo.gptmobile.data.security.SecretVault
 import javax.inject.Inject
 
@@ -61,6 +64,11 @@ class SettingRepositoryImpl @Inject constructor(
     override suspend fun fetchThemes(): ThemeSetting = ThemeSetting(
         dynamicTheme = settingDataSource.getDynamicTheme() ?: DynamicTheme.OFF,
         themeMode = settingDataSource.getThemeMode() ?: ThemeMode.SYSTEM
+    )
+
+    override suspend fun fetchInteractionSettings(): InteractionSetting = InteractionSetting(
+        reasoningDisplayMode = settingDataSource.getReasoningDisplayMode() ?: ReasoningDisplayMode.OFF,
+        reasoningLanguage = settingDataSource.getReasoningLanguage() ?: ReasoningLanguage.CHINESE
     )
 
     override suspend fun migrateToPlatformV2() {
@@ -149,6 +157,11 @@ class SettingRepositoryImpl @Inject constructor(
     override suspend fun updateThemes(themeSetting: ThemeSetting) {
         settingDataSource.updateDynamicTheme(themeSetting.dynamicTheme)
         settingDataSource.updateThemeMode(themeSetting.themeMode)
+    }
+
+    override suspend fun updateInteractionSettings(settings: InteractionSetting) {
+        settingDataSource.updateReasoningDisplayMode(settings.reasoningDisplayMode)
+        settingDataSource.updateReasoningLanguage(settings.reasoningLanguage)
     }
 
     override suspend fun addPlatformV2(platform: PlatformV2) {

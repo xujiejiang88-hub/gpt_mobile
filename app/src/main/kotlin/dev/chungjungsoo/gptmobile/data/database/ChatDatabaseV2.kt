@@ -35,9 +35,9 @@ import dev.chungjungsoo.gptmobile.data.database.entity.ToolEvent
         AgentToolBinding::class,
         AgentRun::class,
         ToolEvent::class,
-        LocalModel::class
+        LocalModel::class,
     ],
-    version = 10,
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(

@@ -66,6 +66,10 @@ class SettingViewModelV2 @Inject constructor(
 
     fun closeThemeDialog() = _dialogState.update { it.copy(isThemeDialogOpen = false) }
 
+    fun openInteractionDialog() = _dialogState.update { it.copy(isInteractionDialogOpen = true) }
+
+    fun closeInteractionDialog() = _dialogState.update { it.copy(isInteractionDialogOpen = false) }
+
     fun openDeleteDialog(platformId: Int) = _dialogState.update {
         it.copy(
             isDeleteDialogOpen = true,
@@ -90,6 +94,7 @@ class SettingViewModelV2 @Inject constructor(
 
     data class DialogState(
         val isThemeDialogOpen: Boolean = false,
+        val isInteractionDialogOpen: Boolean = false,
         val isDeleteDialogOpen: Boolean = false,
         val platformToDelete: Int? = null
     )

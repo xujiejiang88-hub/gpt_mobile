@@ -53,6 +53,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Crop
@@ -73,6 +74,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -132,6 +134,8 @@ import dev.chungjungsoo.gptmobile.data.database.entity.effectiveThoughts
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveTimeline
 import dev.chungjungsoo.gptmobile.presentation.theme.frosted
 import dev.chungjungsoo.gptmobile.presentation.theme.frostedContainerColor
+import dev.chungjungsoo.gptmobile.presentation.common.LocalInteractionSetting
+import dev.chungjungsoo.gptmobile.data.model.ReasoningDisplayMode
 import dev.chungjungsoo.gptmobile.util.isAssistantErrorMessage
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -180,6 +184,13 @@ fun ChatScreen(
     val enabledPlatformLookup = remember(appEnabledPlatforms) { appEnabledPlatforms.associateBy { it.uid } }
     val canUseChat = (chatViewModel.enabledPlatformsInChat.toSet() - appEnabledPlatforms.map { it.uid }.toSet()).isEmpty()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
+    val chatReasoningPlatforms = remember(appAllPlatforms, chatViewModel.enabledPlatformsInChat) {
+        appAllPlatforms.filter { it.uid in chatViewModel.enabledPlatformsInChat && it.reasoning }
+    }
+    val chatReasoningLevel = chatReasoningPlatforms
+        .map { it.reasoningLevel.uppercase() }
+        .distinct()
+        .singleOrNull()
     val context = LocalContext.current
     val lastMessageIndex = groupedMessages.userMessages.lastIndex
     var requestedNotificationPermission by rememberSaveable { mutableStateOf(false) }
@@ -268,6 +279,8 @@ fun ChatScreen(
                 scrollBehavior,
                 chatViewModel::openChatTitleDialog,
                 chatViewModel::openChatModelDialog,
+                reasoningLevel = chatReasoningLevel,
+                onReasoningLevelChange = chatViewModel::updateReasoningLevel,
                 onExportChatItemClick = { exportChat(context, chatViewModel) }
             )
         }
@@ -480,6 +493,7 @@ private fun ChatMessagePair(
     onShowPreviousRevision: (Int, Int) -> Unit,
     onShowNextRevision: (Int, Int) -> Unit
 ) {
+    val interactionSettings = LocalInteractionSetting.current
     val selectedAssistantMessage = assistantMessages.getOrNull(platformIndexState)
     val assistantContent = selectedAssistantMessage?.effectiveContent() ?: ""
     val assistantThoughts = selectedAssistantMessage?.effectiveThoughts() ?: ""
@@ -567,6 +581,8 @@ private fun ChatMessagePair(
                 text = assistantContent,
                 thoughts = assistantThoughts,
                 timeline = assistantTimeline,
+                        showThinkingSummary = interactionSettings.reasoningDisplayMode == ReasoningDisplayMode.SUMMARY,
+                showThinkingStatus = interactionSettings.reasoningDisplayMode != ReasoningDisplayMode.OFF,
                 attachments = selectedAssistantMessage?.attachments.orEmpty().map { it.filePathForDisplay },
                 agentRun = agentRun,
                 runNotices = selectedRunId?.let(runNoticesById::get).orEmpty(),
@@ -619,9 +635,12 @@ private fun ChatTopBar(
     scrollBehavior: TopAppBarScrollBehavior,
     onChatTitleItemClick: () -> Unit,
     onChatModelItemClick: () -> Unit,
+    reasoningLevel: String?,
+    onReasoningLevelChange: (dev.chungjungsoo.gptmobile.data.model.ReasoningLevel) -> Unit,
     onExportChatItemClick: () -> Unit
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
+    var isReasoningMenuExpanded by remember { mutableStateOf(false) }
 
     TopAppBar(
         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -633,6 +652,42 @@ private fun ChatTopBar(
             }
         },
         actions = {
+            if (reasoningLevel != null) {
+                Box {
+                    TextButton(onClick = { isReasoningMenuExpanded = true }) {
+                        Text(
+                            text = when (reasoningLevel) {
+                                "LOW" -> stringResource(R.string.reasoning_level_low)
+                                "HIGH" -> stringResource(R.string.reasoning_level_high)
+                                else -> stringResource(R.string.reasoning_level_medium)
+                            },
+                            maxLines = 1
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = isReasoningMenuExpanded,
+                        onDismissRequest = { isReasoningMenuExpanded = false }
+                    ) {
+                        dev.chungjungsoo.gptmobile.data.model.ReasoningLevel.entries.forEach { level ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        when (level) {
+                                            dev.chungjungsoo.gptmobile.data.model.ReasoningLevel.LOW -> stringResource(R.string.reasoning_level_low)
+                                            dev.chungjungsoo.gptmobile.data.model.ReasoningLevel.MEDIUM -> stringResource(R.string.reasoning_level_medium)
+                                            dev.chungjungsoo.gptmobile.data.model.ReasoningLevel.HIGH -> stringResource(R.string.reasoning_level_high)
+                                        }
+                                    )
+                                },
+                                onClick = {
+                                    onReasoningLevelChange(level)
+                                    isReasoningMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
             IconButton(
                 enabled = isModelItemEnabled,
                 onClick = onChatModelItemClick
@@ -812,6 +867,7 @@ fun ChatInputBox(
     val scope = rememberCoroutineScope()
     val chatInputLineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 5)
     val hasQuestionText = inputState.text.isNotEmpty()
+    var isAttachmentMenuExpanded by remember { mutableStateOf(false) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -894,29 +950,48 @@ fun ChatInputBox(
                             .padding(all = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                    IconButton(
-                        enabled = chatEnabled,
-                        onClick = { filePickerLauncher.launch("image/*") }
-                    ) {
-                        Icon(
-                            imageVector = ImageVector.vectorResource(R.drawable.ic_attach_file),
-                            contentDescription = stringResource(R.string.attach_file)
-                        )
-                    }
-                    IconButton(
-                        enabled = chatEnabled,
-                        onClick = {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                                launchCamera()
-                            } else {
-                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                            }
+                    Box {
+                        IconButton(
+                            enabled = chatEnabled,
+                            onClick = { isAttachmentMenuExpanded = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.add_attachment)
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = stringResource(R.string.take_photo)
-                        )
+                        DropdownMenu(
+                            expanded = isAttachmentMenuExpanded,
+                            onDismissRequest = { isAttachmentMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.upload_file)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_attach_file),
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    isAttachmentMenuExpanded = false
+                                    filePickerLauncher.launch("image/*")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.take_photo)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = null)
+                                },
+                                onClick = {
+                                    isAttachmentMenuExpanded = false
+                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                        launchCamera()
+                                    } else {
+                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    }
+                                }
+                            )
+                        }
                     }
                     Box(
                         modifier = Modifier

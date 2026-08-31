@@ -45,6 +45,7 @@ import dev.chungjungsoo.gptmobile.data.dto.openai.response.ResponseCreatedEvent
 import dev.chungjungsoo.gptmobile.data.dto.openai.response.ResponseFailedEvent
 import dev.chungjungsoo.gptmobile.data.dto.openai.response.ResponseInProgressEvent
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.ReasoningLevel
 import dev.chungjungsoo.gptmobile.data.model.GeminiSafetySettings
 import dev.chungjungsoo.gptmobile.data.network.AnthropicAPI
 import dev.chungjungsoo.gptmobile.data.network.GoogleAPI
@@ -88,7 +89,7 @@ class OpenAIResponsesAdapter @Inject constructor(
                     instructions = platform.systemPrompt?.takeIf { it.isNotBlank() },
                     temperature = if (platform.reasoning) null else platform.temperature,
                     topP = if (platform.reasoning) null else platform.topP,
-                    reasoning = if (platform.reasoning) ReasoningConfig(effort = "medium", summary = "auto") else null,
+                    reasoning = if (platform.reasoning) ReasoningConfig(effort = platform.reasoningLevelValue().apiValue(), summary = "auto") else null,
                     previousResponseId = previousResponseId,
                     tools = tools.takeIf { it.isNotEmpty() }?.map { definition ->
                         ResponseFunctionTool(definition.name, definition.description, definition.inputSchema)
@@ -152,7 +153,10 @@ class OpenAICompatibleAdapter @Inject constructor(
                         } ?: chunk.choices.orEmpty().forEach { choice ->
                             reasoningParser.append(
                                 contentChunk = choice.delta?.content ?: choice.message?.content,
-                                reasoningChunk = choice.delta?.reasoning ?: choice.message?.reasoning
+                                reasoningChunk = choice.delta?.reasoning
+                                    ?: choice.delta?.reasoningContent
+                                    ?: choice.message?.reasoning
+                                    ?: choice.message?.reasoningContent
                             ).forEach { state ->
                                 state.toProviderEvent()?.let { emit(it) }
                             }
@@ -182,6 +186,7 @@ class OpenAICompatibleAdapter @Inject constructor(
                     stream = platform.stream,
                     temperature = platform.temperature,
                     topP = platform.topP,
+                    reasoningEffort = platform.reasoningLevelValue().apiValue().takeIf { platform.reasoning },
                     tools = requestTools
                 )
                 val assembler = ChatCompletionsEventAssembler()
@@ -193,7 +198,9 @@ class OpenAICompatibleAdapter @Inject constructor(
                     } ?: chunk.choices.orEmpty().forEach { choice ->
                         assembler.accept(
                             content = choice.delta.content,
-                            reasoning = choice.delta.reasoning,
+                            reasoning = choice.delta.reasoning
+                                ?: choice.delta.reasoningContent
+                                ?: choice.delta.analysis,
                             toolCalls = choice.delta.toolCalls,
                             finishReason = choice.finishReason
                         ).forEach { emit(it) }
@@ -220,7 +227,8 @@ class AnthropicMessagesAdapter @Inject constructor(
                 val thinkingPolicy = anthropicThinkingPolicy(
                     model = platform.model,
                     reasoningEnabled = platform.reasoning,
-                    hasTools = tools.isNotEmpty()
+                    hasTools = tools.isNotEmpty(),
+                    reasoningLevel = platform.reasoningLevelValue()
                 )
                 val isThinkingActive = thinkingPolicy.config?.type?.let { it != "disabled" } == true
                 val request = MessageRequest(
@@ -277,7 +285,8 @@ internal data class AnthropicThinkingPolicy(
 internal fun anthropicThinkingPolicy(
     model: String,
     reasoningEnabled: Boolean,
-    hasTools: Boolean
+    hasTools: Boolean,
+    reasoningLevel: ReasoningLevel = ReasoningLevel.MEDIUM
 ): AnthropicThinkingPolicy {
     val normalizedModel = model.lowercase()
     if (!reasoningEnabled) {
@@ -303,7 +312,7 @@ internal fun anthropicThinkingPolicy(
         (normalizedModel.contains("opus") || normalizedModel.contains("sonnet")) &&
         MANUAL_INTERLEAVED_ANTHROPIC_MODEL_PATTERN.containsMatchIn(normalizedModel)
     return AnthropicThinkingPolicy(
-        config = AnthropicThinkingConfig(type = "enabled", budgetTokens = 10_000, display = "summarized"),
+        config = AnthropicThinkingConfig(type = "enabled", budgetTokens = reasoningLevel.anthropicBudget(), display = "summarized"),
         betaFeatures = if (supportsManualInterleaving) setOf(ANTHROPIC_INTERLEAVED_THINKING_BETA) else emptySet()
     )
 }
@@ -367,7 +376,10 @@ class GeminiAdapter @Inject constructor(
                     generationConfig = GenerationConfig(
                         temperature = platform.temperature,
                         topP = platform.topP,
-                        thinkingConfig = if (platform.reasoning) GoogleThinkingConfig(includeThoughts = true) else null
+                        thinkingConfig = if (platform.reasoning) GoogleThinkingConfig(
+                            thinkingBudget = platform.reasoningLevelValue().geminiBudget(),
+                            includeThoughts = true
+                        ) else null
                     ),
                     systemInstruction = platform.systemPrompt?.takeIf { it.isNotBlank() }?.let { prompt ->
                         Content(parts = listOf(Part.text(prompt)))
@@ -535,7 +547,7 @@ private fun createGroqChatCompletionRequest(
         temperature = platform.temperature,
         topP = platform.topP,
         maxCompletionTokens = if (platform.reasoning) 8_192 else null,
-        reasoningEffort = if (platform.reasoning && isGptOssModel) "medium" else null,
+        reasoningEffort = if (platform.reasoning && isGptOssModel) platform.reasoningLevelValue().apiValue() else null,
         reasoningFormat = when {
             platform.reasoning && !isGptOssModel -> "parsed"
             !platform.reasoning && !isGptOssModel -> "hidden"
@@ -551,3 +563,7 @@ private fun createGroqChatCompletionRequest(
 
 private const val GROQ_OUTPUT_LIMIT_MESSAGE =
     "Groq reached the model output limit before producing a final answer."
+
+private fun PlatformV2.reasoningLevelValue(): ReasoningLevel =
+    runCatching { ReasoningLevel.valueOf(reasoningLevel.uppercase()) }
+        .getOrDefault(ReasoningLevel.MEDIUM)

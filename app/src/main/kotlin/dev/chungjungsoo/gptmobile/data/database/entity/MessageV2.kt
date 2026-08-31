@@ -72,15 +72,34 @@ const val ACTIVE_REVISION_LATEST = -1
 
 fun MessageV2.hasHistoricalRevisionSelected(): Boolean = activeRevisionIndex in revisions.indices
 
-fun MessageV2.effectiveContent(): String = revisions
-    .getOrNull(activeRevisionIndex)
-    ?.content
-    ?: content
+fun MessageV2.effectiveContent(): String {
+    val raw = effectiveContentRaw()
+    return if (thoughts.isBlank() && revisions.getOrNull(activeRevisionIndex)?.thoughts.isNullOrBlank()) {
+        embeddedReasoningSummary(raw)?.first ?: raw
+    } else {
+        raw
+    }
+}
+
+private fun embeddedReasoningSummary(content: String): Pair<String, String>? {
+    val match = Regex(
+        "(?im)^(?:#{1,6}\\s*)?(?:推理摘要|思考摘要|reasoning\\s+summary|thinking\\s+summary)\\s*:?[ \\t]*\\r?\\n([\\s\\S]*)"
+    ).find(content) ?: return null
+    val body = match.groupValues[1].trim().takeIf { it.isNotBlank() } ?: return null
+    return content.substring(0, match.range.first).trim() to body
+}
 
 fun MessageV2.effectiveThoughts(): String = revisions
     .getOrNull(activeRevisionIndex)
     ?.thoughts
-    ?: thoughts
+    ?.takeIf { it.isNotBlank() }
+    ?: thoughts.takeIf { it.isNotBlank() }
+    ?: embeddedReasoningSummary(effectiveContentRaw())?.second.orEmpty()
+
+private fun MessageV2.effectiveContentRaw(): String = revisions
+    .getOrNull(activeRevisionIndex)
+    ?.content
+    ?: content
 
 fun MessageV2.effectiveTimeline(): List<AssistantTimelineItem> = revisions
     .getOrNull(activeRevisionIndex)

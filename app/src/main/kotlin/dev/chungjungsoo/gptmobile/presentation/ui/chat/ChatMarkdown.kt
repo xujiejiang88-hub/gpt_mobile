@@ -75,6 +75,9 @@ private const val DISPLAY_MATH_PLACEHOLDER_PREFIX = "CHAT_MATH_DISPLAY_"
 private const val DISPLAY_MATH_PLACEHOLDER_SUFFIX = "_TOKEN"
 private const val DISPLAY_MATH_PLACEHOLDER_TEST_NONCE = "test"
 private const val MAX_INLINE_MATH_WIDTH_EM = 14f
+private const val MAX_MATH_RENDER_CHARS = 6_000
+private const val MAX_MATH_BLOCK_MARKERS = 10
+private const val MAX_COMPLEX_FORMULA_CHARS = 420
 
 private data class InlineMathMetrics(
     val widthEm: Float,
@@ -85,12 +88,19 @@ private data class InlineMathMetrics(
 fun ChatMarkdown(
     content: String,
     contentIdentity: Any = content,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enableMath: Boolean = true
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-    val parsed = remember(content) { parseChatMarkdown(content) }
+    val mathRenderingEnabled = remember(content, enableMath) {
+        enableMath && content.length <= MAX_MATH_RENDER_CHARS &&
+            (content.count { it == '$' } / 2 + content.split("\\\\[").size - 1) <= MAX_MATH_BLOCK_MARKERS
+    }
+    val parsed = remember(content, mathRenderingEnabled) {
+        parseChatMarkdown(content, enableMath = mathRenderingEnabled)
+    }
     val density = LocalDensity.current
     val inlineMathMetrics = remember(content) { mutableStateMapOf<String, InlineMathMetrics>() }
     val inlineFontSize = MaterialTheme.typography.bodyMedium.fontSize
@@ -134,7 +144,9 @@ fun ChatMarkdown(
             placeholder = Placeholder(
                 width = (metrics?.widthEm ?: inlineMathWidth(token.tex).value).em,
                 height = (metrics?.heightEm ?: inlineMathHeight(token.tex).value).em,
-                placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter
+                // Align math to the surrounding text baseline. TextCenter makes
+                // fraction roots and scripts overlap CJK glyphs in mixed lines.
+                placeholderVerticalAlign = PlaceholderVerticalAlign.AboveBaseline
             )
         ) {
             InlineMathView(token.tex) { widthPx, heightPx ->
