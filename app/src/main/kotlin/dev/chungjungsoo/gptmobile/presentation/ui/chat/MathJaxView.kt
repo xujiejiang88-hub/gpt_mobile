@@ -47,21 +47,40 @@ html, body {
 }
 body {
   display: inline-block;
+  line-height: 1.2;
 }
 body.display {
   display: block;
   width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+body.inline {
+  display: inline-block;
+  width: auto;
+  overflow: hidden;
 }
 #root {
   display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
   margin: 0;
   padding: 2px 0;
 }
 #root.display {
   display: block;
-  width: 100%;
-  text-align: center;
-  padding: 8px 0;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  text-align: left;
+  padding: 4px 4px;
+}
+#root.inline {
+  display: inline-block;
+  width: max-content;
+  max-width: none;
+  padding: 0;
 }
 #root pre {
   margin: 0;
@@ -71,15 +90,13 @@ body.display {
 mjx-container[jax="SVG"] {
   display: inline-block;
   margin: 0 !important;
-  max-width: 100%;
 }
 #root.display mjx-container[jax="SVG"] {
-  display: block;
-  text-align: center;
+  display: inline-block;
 }
 svg {
   overflow: visible;
-  max-width: 100%;
+  height: auto;
 }
 </style>
 <script>
@@ -234,7 +251,10 @@ private object MathJaxRenderCache {
 }
 
 @Composable
-internal fun InlineMathView(tex: String) {
+internal fun InlineMathView(
+    tex: String,
+    onMeasured: (widthPx: Int, heightPx: Int) -> Unit = { _, _ -> }
+) {
     val density = LocalDensity.current
     val textColor = LocalContentColor.current
     val fontSize = MaterialTheme.typography.bodyMedium.fontSize
@@ -244,7 +264,7 @@ internal fun InlineMathView(tex: String) {
         (fontSize.value * density.fontScale).roundToInt()
     }
     val minimumHeightCssPx = remember(fontSizeCssPx) {
-        (fontSizeCssPx * 1.4f).roundToInt()
+        (fontSizeCssPx * 1.2f).roundToInt()
     }
     val textColorCss = remember(textColor) {
         formatCssColor(textColor)
@@ -261,7 +281,8 @@ internal fun InlineMathView(tex: String) {
 
     MathJaxFormulaView(
         request = request,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        onMeasured = onMeasured
     )
 }
 
@@ -300,7 +321,7 @@ internal fun DisplayMathView(
     MathJaxFormulaView(
         request = request,
         modifier = modifier.height(measuredHeightCssPx.dp),
-        onMeasured = { heightPx ->
+        onMeasured = { _, heightPx ->
             val resolvedHeightPx = heightPx.coerceAtLeast(minimumHeightCssPx)
             measuredHeightCssPx = resolvedHeightPx
             MathJaxDisplayHeightCache.put(request, resolvedHeightPx)
@@ -312,7 +333,7 @@ internal fun DisplayMathView(
 private fun MathJaxFormulaView(
     request: MathRenderRequest,
     modifier: Modifier = Modifier,
-    onMeasured: (Int) -> Unit = {}
+    onMeasured: (widthPx: Int, heightPx: Int) -> Unit = { _, _ -> }
 ) {
     AndroidView(
         modifier = modifier,
@@ -331,19 +352,20 @@ private class MathJaxWebView(context: Context) : WebView(context) {
     private var pageLoaded = false
     private var renderedRequest: MathRenderRequest? = null
     private var pendingRequest: MathRenderRequest? = null
-    private var onMeasured: ((Int) -> Unit)? = null
+    private var onMeasured: ((widthPx: Int, heightPx: Int) -> Unit)? = null
     private var renderRetryCount = 0
     private val renderRetryRunnable = Runnable { renderPendingRequest() }
 
     init {
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
-        isClickable = false
+        // Keep the formula view interactive so overflowed display equations can be panned.
+        isClickable = true
         isFocusable = false
         isFocusableInTouchMode = false
         isHorizontalScrollBarEnabled = false
         isLongClickable = false
         isVerticalScrollBarEnabled = false
-        overScrollMode = View.OVER_SCROLL_NEVER
+        overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
         setOnLongClickListener { true }
 
         settings.allowContentAccess = false
@@ -371,7 +393,7 @@ private class MathJaxWebView(context: Context) : WebView(context) {
 
     fun setRenderRequest(
         request: MathRenderRequest,
-        onMeasured: (Int) -> Unit
+        onMeasured: (widthPx: Int, heightPx: Int) -> Unit
     ) {
         this.onMeasured = onMeasured
         if (request == renderedRequest && pendingRequest == null) {
@@ -434,7 +456,7 @@ private class MathJaxWebView(context: Context) : WebView(context) {
             pendingRequest = null
             renderRetryCount = 0
 
-            onMeasured?.invoke(max(renderResult.heightPx, request.minimumHeightPx))
+            onMeasured?.invoke(renderResult.widthPx, max(renderResult.heightPx, request.minimumHeightPx))
         }
     }
 
@@ -471,7 +493,7 @@ private class MathJaxWebView(context: Context) : WebView(context) {
         renderedRequest = request
         pendingRequest = null
         renderRetryCount = 0
-        onMeasured?.invoke(max(cachedResult.heightPx, request.minimumHeightPx))
+        onMeasured?.invoke(cachedResult.widthPx, max(cachedResult.heightPx, request.minimumHeightPx))
         return true
     }
 }
@@ -556,10 +578,10 @@ private fun estimateDisplayMathMinimumHeightPx(
         "\\over"
     ).any(tex::contains)
     val baseEmHeight = when {
-        lineCount >= 3 -> 7.5f
-        lineCount == 2 -> 5.8f
-        containsTallOperators -> 4.8f
-        else -> 3.2f
+        lineCount >= 3 -> 6.2f
+        lineCount == 2 -> 4.8f
+        containsTallOperators -> 3.9f
+        else -> 2.7f
     }
     return (fontSizePx * baseEmHeight).roundToInt()
 }

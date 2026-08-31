@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.presentation.theme.ChatReadingTheme
 import dev.chungjungsoo.gptmobile.presentation.ui.chat.ChatScreen
 import dev.chungjungsoo.gptmobile.presentation.ui.home.HomeScreen
 import dev.chungjungsoo.gptmobile.presentation.ui.migrate.MigrateScreen
@@ -174,10 +175,12 @@ fun NavGraphBuilder.chatScreenNavigation(navController: NavHostController) {
             navArgument("enabledPlatforms") { defaultValue = "" }
         )
     ) {
-        ChatScreen(
-            onBackAction = { navController.navigateUp() },
-            onNavigateToLocalModels = { navController.navigate(Route.LOCAL_MODELS) }
-        )
+        ChatReadingTheme {
+            ChatScreen(
+                onBackAction = { navController.navigateUp() },
+                onNavigateToLocalModels = { navController.navigate(Route.LOCAL_MODELS) }
+            )
+        }
     }
 }
 

@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chungjungsoo.gptmobile.R
+import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
 import dev.chungjungsoo.gptmobile.presentation.common.PrimaryLongButton
 import dev.chungjungsoo.gptmobile.presentation.icons.Block
 import dev.chungjungsoo.gptmobile.presentation.icons.Complete
@@ -108,14 +107,13 @@ fun MigrationCard(
     description: String,
     onMigrationClick: () -> Unit
 ) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
+        FrostedSurface(
+            modifier = Modifier.fillMaxWidth(),
+            shadowElevation = 5.dp
+        ) {
         Row(
             modifier = Modifier
                 .padding(16.dp)
@@ -160,6 +158,7 @@ fun MigrationCard(
                     MigrateViewModel.MigrationState.ERROR -> Text(stringResource(R.string.error))
                 }
             }
+        }
         }
     }
 }

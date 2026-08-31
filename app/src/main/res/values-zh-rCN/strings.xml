@@ -58,6 +58,11 @@
     <string name="theme_settings">主题</string>
     <string name="supported_soon">很快会支持</string>
     <string name="theme_description">动态取色主题、暗黑模式</string>
+    <string name="local_models">本地模型</string>
+    <string name="local_models_description">浏览模型目录</string>
+    <string name="web_tools">工具连接</string>
+    <string name="tool_connections">工具连接</string>
+    <string name="web_tools_description">网页搜索和 MCP 连接</string>
     <string name="openai_setting">OpenAI</string>
     <string name="anthropic_setting">Anthropic</string>
     <string name="google_setting">Google</string>
@@ -225,9 +230,14 @@
     <string name="openrouter_description">通过单一 API 端点，使用多种 AI 模型</string>
     <string name="custom_provider">自定义提供商</string>
     <string name="custom_provider_description">连接到任意兼容 OpenAI 格式的 API 端点</string>
+    <string name="client_type_custom">自定义</string>
+    <string name="client_type_local">本地</string>
     <string name="platform_added_successfully">提供商添加成功</string>
     <string name="at_least_one_platform_required">请至少启用一个提供商</string>
     <string name="remove">移除</string>
+    <string name="revision_counter">版本 %1$d/%2$d</string>
+    <string name="previous_revision">上一个版本</string>
+    <string name="next_revision">下一个版本</string>
     <string name="gemini_safety_settings">Gemini 安全设置</string>
     <string name="gemini_safety_settings_description">骚扰、仇恨言论、性内容、危险内容</string>
     <string name="gemini_safety_settings_icon">Gemini 安全设置图标</string>
@@ -248,4 +258,5 @@
     <string name="tool_trace_collapse">折叠</string>
     <string name="tool_trace_status_canceled">已取消</string>
     <string name="tool_trace_status_completed">已完成</string>
+    <string name="retry_tools_warning">重试可能会再次运行已分配的工具。</string>
 </resources>

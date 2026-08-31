@@ -1,13 +1,21 @@
 package dev.chungjungsoo.gptmobile.presentation.common
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -15,6 +23,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.chungjungsoo.gptmobile.R
+import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
 
 @Composable
 fun SettingItem(
@@ -27,60 +36,66 @@ fun SettingItem(
     showLeadingIcon: Boolean,
     leadingIcon: @Composable () -> Unit? = {}
 ) {
-    val clickableModifier = if (enabled) {
-        modifier
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onItemClick)
-            .padding(horizontal = 8.dp)
-    } else {
-        modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp)
-    }
-    val colors = ListItemDefaults.colors()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        FrostedSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (enabled) Modifier.clickable(onClick = onItemClick) else Modifier),
+            shape = shape,
+            shadowElevation = 3.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 72.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+            if (showLeadingIcon) {
+                Row(
+                    modifier = Modifier.size(40.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    leadingIcon()
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+            }
 
-    if (showLeadingIcon) {
-        ListItem(
-            modifier = clickableModifier,
-            headlineContent = { Text(title, overflow = TextOverflow.Ellipsis) },
-            supportingContent = {
-                description?.let { Text(it, overflow = TextOverflow.Ellipsis) }
-            },
-            leadingContent = { leadingIcon() },
-            trailingContent = {
-                if (showTrailingIcon) {
-                    Icon(
-                        ImageVector.vectorResource(id = R.drawable.ic_round_arrow_right),
-                        contentDescription = stringResource(R.string.arrow_icon)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                description?.let {
+                    Text(
+                        text = it,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            },
-            colors = ListItemDefaults.colors(
-                headlineColor = if (enabled) colors.headlineColor else colors.disabledHeadlineColor,
-                supportingColor = if (enabled) colors.supportingTextColor else colors.disabledHeadlineColor,
-                trailingIconColor = if (enabled) colors.trailingIconColor else colors.disabledTrailingIconColor
-            )
-        )
-    } else {
-        ListItem(
-            modifier = clickableModifier,
-            headlineContent = { Text(title) },
-            supportingContent = {
-                description?.let { Text(it) }
-            },
-            trailingContent = {
-                if (showTrailingIcon) {
-                    Icon(
-                        ImageVector.vectorResource(id = R.drawable.ic_round_arrow_right),
-                        contentDescription = stringResource(R.string.arrow_icon)
-                    )
-                }
-            },
-            colors = ListItemDefaults.colors(
-                headlineColor = if (enabled) colors.headlineColor else colors.disabledHeadlineColor,
-                supportingColor = if (enabled) colors.supportingTextColor else colors.disabledHeadlineColor,
-                trailingIconColor = if (enabled) colors.trailingIconColor else colors.disabledTrailingIconColor
-            )
-        )
+            }
+
+            if (showTrailingIcon) {
+                Spacer(modifier = Modifier.width(12.dp))
+                Icon(
+                    modifier = Modifier.size(20.dp),
+                    imageVector = ImageVector.vectorResource(id = R.drawable.ic_round_arrow_right),
+                    contentDescription = stringResource(R.string.arrow_icon),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            }
+        }
     }
 }

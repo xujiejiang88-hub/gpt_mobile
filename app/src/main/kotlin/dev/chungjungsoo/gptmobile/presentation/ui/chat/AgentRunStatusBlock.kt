@@ -3,8 +3,6 @@ package dev.chungjungsoo.gptmobile.presentation.ui.chat
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,24 +18,25 @@ import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.database.entity.AgentRun
 import dev.chungjungsoo.gptmobile.data.database.entity.AgentRunStatus
 import dev.chungjungsoo.gptmobile.data.database.entity.AgentRunTerminalError
+import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
 
 @Composable
 fun RunNoticeChips(notices: List<String>, modifier: Modifier = Modifier) {
     if (notices.isEmpty()) return
     Column(modifier = modifier) {
         notices.forEach { notice ->
-            Card(
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .semantics { contentDescription = notice },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Text(
-                    text = notice,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
+            androidx.compose.foundation.layout.Box(modifier = Modifier.padding(bottom = 8.dp)) {
+                FrostedSurface(
+                    modifier = Modifier.semantics { contentDescription = notice },
+                    shadowElevation = 3.dp
+                ) {
+                    Text(
+                        text = notice,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     }
@@ -65,11 +64,12 @@ fun AgentRunStatusBlock(run: AgentRun?, modifier: Modifier = Modifier) {
         ?.takeIf { it.isNotBlank() }
         ?.let { agentRunTerminalErrorText(it) }
 
-    Card(
-        modifier = modifier.semantics { contentDescription = listOfNotNull(status + duration, terminalError).joinToString(". ") },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    androidx.compose.foundation.layout.Box(modifier = modifier) {
+        FrostedSurface(
+            modifier = Modifier.semantics { contentDescription = listOfNotNull(status + duration, terminalError).joinToString(". ") },
+            shadowElevation = 3.dp
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = status + duration,
@@ -86,6 +86,7 @@ fun AgentRunStatusBlock(run: AgentRun?, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
             }
         }
     }

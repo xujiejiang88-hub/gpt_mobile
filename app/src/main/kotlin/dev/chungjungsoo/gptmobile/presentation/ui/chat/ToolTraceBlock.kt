@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +39,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.chungjungsoo.gptmobile.R
+import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolEvent
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolEventError
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolEventStatus
@@ -174,14 +173,15 @@ private fun ToolTraceEventCard(event: ToolEvent, labels: ToolTraceLabels) {
         event.status.lowercase(Locale.ROOT)
     )
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .semantics { contentDescription = callDescription }
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.padding(top = 8.dp)) {
+        FrostedSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = callDescription },
+            strong = false,
+            shadowElevation = 3.dp
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = "${event.sequence + 1}. ${event.toolName}",
                 style = MaterialTheme.typography.titleSmall,
@@ -197,6 +197,7 @@ private fun ToolTraceEventCard(event: ToolEvent, labels: ToolTraceLabels) {
             event.error?.takeIf { it.isNotBlank() }?.let { ToolTraceLine(labels.error, toolEventErrorText(it)) }
             ToolTraceBlockText(labels.arguments, event.arguments)
             event.result?.takeIf { it.isNotBlank() }?.let { ToolTraceBlockText(labels.result, it) }
+            }
         }
     }
 }

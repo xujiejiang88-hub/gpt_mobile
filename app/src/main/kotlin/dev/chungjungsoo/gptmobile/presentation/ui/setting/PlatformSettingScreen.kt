@@ -11,13 +11,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
@@ -34,8 +37,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -67,6 +68,8 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chungjungsoo.gptmobile.R
+import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
+import dev.chungjungsoo.gptmobile.presentation.theme.frostedContainerColor
 import dev.chungjungsoo.gptmobile.data.localruntime.LocalAccelerators
 import dev.chungjungsoo.gptmobile.data.model.ClientType
 import dev.chungjungsoo.gptmobile.presentation.common.RadioItem
@@ -137,6 +140,7 @@ fun PlatformSettingScreen(
                 Modifier
                     .padding(innerPadding)
                     .verticalScroll(scrollState)
+                    .padding(bottom = 24.dp)
             ) {
                 val isLocalPlatform = platformData.compatibleType == ClientType.LITERT_LM
                 PreferenceSwitchWithContainer(
@@ -144,7 +148,6 @@ fun PlatformSettingScreen(
                     isChecked = platformData.enabled
                 ) { settingViewModel.toggleEnabled() }
                 SettingItem(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.platform_name),
                     description = platformData.name,
                     enabled = platformData.enabled,
@@ -160,7 +163,6 @@ fun PlatformSettingScreen(
                 )
                 if (!isLocalPlatform) {
                     SettingItem(
-                        modifier = Modifier.height(64.dp),
                         title = stringResource(R.string.api_url),
                         description = platformData.apiUrl,
                         enabled = platformData.enabled,
@@ -175,7 +177,6 @@ fun PlatformSettingScreen(
                         }
                     )
                     SettingItem(
-                        modifier = Modifier.height(64.dp),
                         title = stringResource(R.string.api_key),
                         description = if (platformData.token.isNullOrEmpty()) {
                             stringResource(R.string.token_not_set)
@@ -199,7 +200,6 @@ fun PlatformSettingScreen(
                     ?.displayName
                     ?: platformData.model
                 SettingItem(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.api_model),
                     description = modelDescription,
                     enabled = platformData.enabled,
@@ -217,7 +217,6 @@ fun PlatformSettingScreen(
                 val isReasoningDisabled = platformData.compatibleType == ClientType.OPENAI && platformData.reasoning
                 val notSetText = stringResource(R.string.not_set)
                 SettingItem(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.temperature),
                     description = platformData.temperature?.toString() ?: notSetText,
                     enabled = platformData.enabled && !isReasoningDisabled,
@@ -232,7 +231,6 @@ fun PlatformSettingScreen(
                     }
                 )
                 SettingItem(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.top_p),
                     description = platformData.topP?.toString() ?: notSetText,
                     enabled = platformData.enabled && !isReasoningDisabled,
@@ -248,7 +246,6 @@ fun PlatformSettingScreen(
                 )
                 if (isLocalPlatform) {
                     SettingItem(
-                        modifier = Modifier.height(64.dp),
                         title = stringResource(R.string.top_k),
                         description = platformData.topK?.toString() ?: notSetText,
                         enabled = platformData.enabled,
@@ -263,7 +260,6 @@ fun PlatformSettingScreen(
                         }
                     )
                     SettingItem(
-                        modifier = Modifier.height(64.dp),
                         title = stringResource(R.string.max_tokens),
                         description = platformData.maxTokens?.toString() ?: notSetText,
                         enabled = platformData.enabled,
@@ -278,7 +274,6 @@ fun PlatformSettingScreen(
                         }
                     )
                     SettingItem(
-                        modifier = Modifier.height(64.dp),
                         title = stringResource(R.string.accelerator),
                         description = acceleratorLabel(platformData.accelerator),
                         enabled = platformData.enabled && acceleratorOptions.isNotEmpty(),
@@ -294,7 +289,6 @@ fun PlatformSettingScreen(
                     )
                 }
                 SettingItem(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.system_prompt),
                     description = platformData.systemPrompt,
                     enabled = platformData.enabled,
@@ -310,7 +304,6 @@ fun PlatformSettingScreen(
                 )
                 if (!isLocalPlatform) {
                     SettingItem(
-                        modifier = Modifier.height(64.dp),
                         title = stringResource(R.string.timeout),
                         description = formatPlatformTimeout(platformData.timeout, stringResource(R.string.off)),
                         enabled = platformData.enabled,
@@ -327,7 +320,6 @@ fun PlatformSettingScreen(
                 }
                 if (platformData.compatibleType == ClientType.GOOGLE) {
                     SettingItem(
-                        modifier = Modifier.height(64.dp),
                         title = stringResource(R.string.gemini_safety_settings),
                         description = stringResource(R.string.gemini_safety_settings_description),
                         enabled = platformData.enabled,
@@ -344,14 +336,12 @@ fun PlatformSettingScreen(
                 }
                 if (!isLocalPlatform) {
                     ExtendedThinkingSwitch(
-                        modifier = Modifier.height(64.dp),
                         enabled = platformData.enabled,
                         isChecked = platformData.reasoning,
                         onCheckedChange = { settingViewModel.toggleReasoning() }
                     )
                 }
                 SettingItem(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.search_backend),
                     description = toolBindingState.searchConnections.firstOrNull {
                         it.connectionUid == toolBindingState.selectedSearchConnectionUid
@@ -362,7 +352,6 @@ fun PlatformSettingScreen(
                     showLeadingIcon = false
                 )
                 PreferenceListSwitch(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.read_url),
                     icon = ImageVector.vectorResource(id = R.drawable.ic_link),
                     enabled = true,
@@ -370,7 +359,6 @@ fun PlatformSettingScreen(
                     onCheckedChange = settingViewModel::toggleReadUrl
                 )
                 SettingItem(
-                    modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.mcp_tools),
                     description = stringResource(R.string.mcp_tools_assigned, toolBindingState.selectedMcpTools.size),
                     enabled = platformData.enabled,
@@ -554,7 +542,7 @@ fun PlatformTopAppBar(
 
     LargeTopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = frostedContainerColor(),
             titleContentColor = MaterialTheme.colorScheme.onBackground
         ),
         title = {
@@ -607,7 +595,7 @@ private fun acceleratorLabel(accelerator: String?): String = when (accelerator?.
 
 @Composable
 fun ExtendedThinkingSwitch(
-    modifier: Modifier,
+    modifier: Modifier = Modifier,
     enabled: Boolean,
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit
@@ -625,7 +613,7 @@ fun ExtendedThinkingSwitch(
 
 @Composable
 private fun PreferenceListSwitch(
-    modifier: Modifier,
+    modifier: Modifier = Modifier,
     title: String,
     description: String? = null,
     icon: ImageVector,
@@ -633,52 +621,65 @@ private fun PreferenceListSwitch(
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val colors = ListItemDefaults.colors()
-
-    ListItem(
+    val contentColor = if (enabled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    }
+    val supportingColor = if (enabled) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+    }
+    FrostedSurface(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
             .toggleable(
                 value = isChecked,
                 enabled = enabled,
                 role = Role.Switch,
                 onValueChange = onCheckedChange
-            )
-            .padding(horizontal = 8.dp),
-        headlineContent = {
-            Text(
-                text = title,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        supportingContent = description?.let {
-            {
-                Text(
-                    text = description,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        },
-        leadingContent = {
+            ),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 72.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
                 imageVector = icon,
-                contentDescription = title
+                contentDescription = title,
+                tint = contentColor
             )
-        },
-        trailingContent = {
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                description?.let {
+                    Text(
+                        text = it,
+                        color = supportingColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
             Switch(
                 checked = isChecked,
                 onCheckedChange = null,
                 enabled = enabled
             )
-        },
-        colors = ListItemDefaults.colors(
-            headlineColor = if (enabled) colors.headlineColor else colors.disabledHeadlineColor,
-            supportingColor = if (enabled) colors.supportingTextColor else colors.disabledHeadlineColor,
-            leadingIconColor = if (enabled) colors.leadingIconColor else colors.disabledLeadingIconColor,
-            trailingIconColor = if (enabled) colors.trailingIconColor else colors.disabledTrailingIconColor
-        )
-    )
+        }
+    }
 }
 
 @Composable

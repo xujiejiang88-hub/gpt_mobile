@@ -1,5 +1,6 @@
 package dev.chungjungsoo.gptmobile.presentation.ui.chat
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -26,6 +27,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,7 +52,9 @@ import dev.chungjungsoo.gptmobile.data.database.entity.AssistantTimelineItem
 import dev.chungjungsoo.gptmobile.data.database.entity.AssistantTimelineItemType
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolEvent
 import dev.chungjungsoo.gptmobile.data.database.entity.hasUnavailableAssistantOrder
+import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
 import dev.chungjungsoo.gptmobile.presentation.theme.GPTMobileTheme
+import dev.chungjungsoo.gptmobile.presentation.theme.frosted
 import java.io.File
 
 @Composable
@@ -72,9 +76,10 @@ fun UserChatBubble(
             modifier = modifier
                 .pointerInput(Unit) {
                     detectTapGestures(onLongPress = { onLongPress.invoke() })
-                },
+            },
             shape = RoundedCornerShape(32.dp),
-            colors = cardColor
+            colors = cardColor,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             ChatMarkdown(
                 content = text,
@@ -113,13 +118,6 @@ fun OpponentChatBubble(
     onShowPreviousRevision: () -> Unit = {},
     onShowNextRevision: () -> Unit = {}
 ) {
-    val cardColor = CardColors(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        disabledContentColor = MaterialTheme.colorScheme.background.copy(alpha = 0.38f),
-        disabledContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
-    )
-
     val noticeMessages = visibleChatRunNotices(
         stored = runNotices,
         timelineNotices = timelineNoticeMessages(timeline),
@@ -145,20 +143,28 @@ fun OpponentChatBubble(
                 hasToolEvents = toolEvents.isNotEmpty()
             )
             if (contentTimeline.isNotEmpty() && !hasUnavailableOrder) {
-                AssistantTimelineContent(
-                    timeline = contentTimeline,
-                    toolEvents = toolEvents,
-                    isLoading = isLoading,
-                    contentIdentity = contentIdentity
-                )
-                MessageFileThumbnailRow(
-                    files = attachments,
-                    usePrimaryColors = false,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                FrostedSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    strong = true,
+                    shadowElevation = 6.dp
+                ) {
+                    Column {
+                        AssistantTimelineContent(
+                            timeline = contentTimeline,
+                            toolEvents = toolEvents,
+                            isLoading = isLoading,
+                            contentIdentity = contentIdentity
+                        )
+                        MessageFileThumbnailRow(
+                            files = attachments,
+                            usePrimaryColors = false,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                }
             } else {
                 LegacyAssistantContent(
-                    cardColor = cardColor,
                     text = text,
                     thoughts = thoughts,
                     toolEvents = toolEvents,
@@ -170,38 +176,31 @@ fun OpponentChatBubble(
             }
 
             if (!isLoading) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                )
                 Row(
-                    modifier = Modifier.padding(start = 16.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(start = 4.dp, top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (!isError) {
                         CopyTextIcon(onCopyClick)
-                        Spacer(modifier = Modifier.width(8.dp))
                         SelectTextIcon(onSelectClick)
                         if (canEdit) {
-                            Spacer(modifier = Modifier.width(8.dp))
                             EditTextIcon(onEditClick)
                         }
                     }
                     if (canRetry) {
-                        Spacer(modifier = Modifier.width(8.dp))
                         RetryIcon(onRetryClick)
                     }
-                }
-                if (canRetry) {
-                    Text(
-                        text = stringResource(R.string.retry_tools_warning),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
-                }
-
-                revisionIndexLabel?.let { label ->
-                    Row(
-                        modifier = Modifier.padding(start = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    revisionIndexLabel?.let { label ->
+                        Spacer(modifier = Modifier.width(8.dp))
                         IconButton(
+                            modifier = Modifier.size(40.dp),
                             enabled = canShowPreviousRevision,
                             onClick = onShowPreviousRevision
                         ) {
@@ -216,6 +215,7 @@ fun OpponentChatBubble(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         IconButton(
+                            modifier = Modifier.size(40.dp),
                             enabled = canShowNextRevision,
                             onClick = onShowNextRevision
                         ) {
@@ -225,6 +225,14 @@ fun OpponentChatBubble(
                             )
                         }
                     }
+                }
+                if (canRetry && toolEvents.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.retry_tools_warning),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 12.dp, top = 2.dp, end = 12.dp)
+                    )
                 }
             }
         }
@@ -277,7 +285,6 @@ private fun AssistantTimelineContent(
 
 @Composable
 private fun LegacyAssistantContent(
-    cardColor: CardColors,
     text: String,
     thoughts: String,
     toolEvents: List<ToolEvent>,
@@ -308,9 +315,11 @@ private fun LegacyAssistantContent(
         modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp),
         contentIdentity = contentIdentity
     )
-    Card(
-        shape = RoundedCornerShape(0.dp),
-        colors = cardColor
+    FrostedSurface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        strong = true,
+        shadowElevation = 6.dp
     ) {
         Column {
             ChatMarkdown(
@@ -331,22 +340,30 @@ private fun LegacyAssistantContent(
 fun GPTMobileIcon(loading: Boolean) {
     Box(
         modifier = Modifier
-            .padding(start = 8.dp)
-            .size(40.dp)
-            .clip(RoundedCornerShape(40.dp))
-            .background(color = Color(0xFF00A67D)),
+            .padding(start = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        if (loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(40.dp)
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .frosted(
+                    shape = RoundedCornerShape(40.dp),
+                    strong = true,
+                    shadowElevation = 4.dp
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+            Image(
+                painter = painterResource(R.drawable.ic_gpt_mobile_no_padding),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
             )
         }
-        Image(
-            painter = painterResource(R.drawable.ic_gpt_mobile_no_padding),
-            contentDescription = null,
-            modifier = Modifier.size(24.dp)
-        )
     }
 }
 
@@ -385,7 +402,7 @@ fun PlatformButton(
 
 @Composable
 private fun CopyTextIcon(onCopyClick: () -> Unit) {
-    IconButton(onClick = onCopyClick) {
+    IconButton(modifier = Modifier.size(40.dp), onClick = onCopyClick) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_copy),
             contentDescription = stringResource(R.string.copy_text)
@@ -395,7 +412,7 @@ private fun CopyTextIcon(onCopyClick: () -> Unit) {
 
 @Composable
 private fun SelectTextIcon(onSelectClick: () -> Unit) {
-    IconButton(onClick = onSelectClick) {
+    IconButton(modifier = Modifier.size(40.dp), onClick = onSelectClick) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_select),
             contentDescription = stringResource(R.string.select_text)
@@ -405,7 +422,7 @@ private fun SelectTextIcon(onSelectClick: () -> Unit) {
 
 @Composable
 private fun RetryIcon(onRetryClick: () -> Unit) {
-    IconButton(onClick = onRetryClick) {
+    IconButton(modifier = Modifier.size(40.dp), onClick = onRetryClick) {
         Icon(
             Icons.Rounded.Refresh,
             contentDescription = stringResource(R.string.retry)
@@ -415,7 +432,7 @@ private fun RetryIcon(onRetryClick: () -> Unit) {
 
 @Composable
 private fun EditTextIcon(onEditClick: () -> Unit) {
-    IconButton(onClick = onEditClick) {
+    IconButton(modifier = Modifier.size(40.dp), onClick = onEditClick) {
         Icon(
             imageVector = Icons.Outlined.Edit,
             contentDescription = stringResource(R.string.edit)
@@ -499,7 +516,6 @@ private fun MessageFileThumbnail(
     usePrimaryColors: Boolean
 ) {
     val file = File(filePath)
-    val isImage = isImageFile(file.extension)
     val containerColor = if (usePrimaryColors) {
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
     } else {
@@ -512,51 +528,25 @@ private fun MessageFileThumbnail(
     }
 
     Column(
-        modifier = Modifier.width(56.dp),
+        modifier = Modifier.width(92.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(containerColor)
-        ) {
-            if (isImage) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_image),
-                    contentDescription = file.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    tint = contentColor
-                )
-            } else {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_file),
-                    contentDescription = file.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    tint = contentColor
-                )
-            }
-        }
+        AttachmentPreview(
+            filePath = filePath,
+            contentDescription = file.name,
+            modifier = Modifier.size(width = 88.dp, height = 68.dp)
+        )
 
         Text(
             text = file.name,
             style = MaterialTheme.typography.labelSmall,
             color = contentColor,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier
                 .padding(top = 4.dp)
-                .width(56.dp)
+                .width(88.dp)
         )
     }
-}
-
-private fun isImageFile(extension: String?): Boolean {
-    val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
-    return extension?.lowercase() in imageExtensions
 }

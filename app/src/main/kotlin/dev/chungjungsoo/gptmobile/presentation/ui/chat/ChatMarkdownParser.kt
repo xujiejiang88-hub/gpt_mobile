@@ -56,6 +56,17 @@ fun parseChatMarkdown(content: String): ParsedChatMarkdown {
             continue
         }
 
+        // Educational answers often wrap a single inline formula in its own line
+        // (for example, `$f(x)=...$`). Treat that line as display math so it cannot
+        // force the surrounding Chinese text into an awkward, oversized line box.
+        val standaloneInlineMath = detectStandaloneInlineMath(content, index)
+        if (standaloneInlineMath != null) {
+            flushMarkdownBuffer(markdownBuffer, blocks, inlineMath)
+            blocks += ChatMarkdownBlock.DisplayMath(standaloneInlineMath.tex)
+            index = standaloneInlineMath.endExclusive
+            continue
+        }
+
         markdownBuffer.append(content[index])
         index++
     }
@@ -179,6 +190,35 @@ private fun detectDisplayMath(content: String, index: Int): DisplayMathMatch? {
     }
 
     return null
+}
+
+private fun detectStandaloneInlineMath(content: String, index: Int): DisplayMathMatch? {
+    val lineStart = content.lastIndexOf('\n', index - 1).let { if (it == -1) 0 else it + 1 }
+    if (index != lineStart || isEscaped(content, index)) return null
+
+    if (content.startsWith("\\(", index)) {
+        val end = findClosingDelimiter(content, index + 2, "\\)")
+        if (end != -1 && content.substring(end + 2, lineEnd(content, end + 2)).isBlank()) {
+            return DisplayMathMatch(content.substring(index + 2, end).trim(), lineEndExclusive(content, end + 2))
+        }
+    }
+
+    if (content[index] == '$' && content.getOrNull(index + 1) != '$') {
+        val end = findClosingInlineDollar(content, index + 1)
+        if (end != -1 && content.substring(end + 1, lineEnd(content, end + 1)).isBlank()) {
+            return DisplayMathMatch(content.substring(index + 1, end).trim(), lineEndExclusive(content, end + 1))
+        }
+    }
+
+    return null
+}
+
+private fun lineEnd(content: String, index: Int): Int = content.indexOf('\n', index).let {
+    if (it == -1) content.length else it
+}
+
+private fun lineEndExclusive(content: String, index: Int): Int = lineEnd(content, index).let {
+    if (it < content.length) it + 1 else it
 }
 
 private fun detectFenceDelimiter(content: String, index: Int): String? {

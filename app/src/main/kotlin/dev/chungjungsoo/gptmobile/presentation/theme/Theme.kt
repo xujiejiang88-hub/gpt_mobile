@@ -3,6 +3,7 @@ package dev.chungjungsoo.gptmobile.presentation.theme
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -99,6 +100,15 @@ private val darkScheme = darkColorScheme(
     surfaceContainerHigh = surfaceContainerHighDark,
     surfaceContainerHighest = surfaceContainerHighestDark
 )
+
+@Composable
+fun ChatReadingTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = MaterialTheme.colorScheme,
+        typography = AppTypography,
+        content = content
+    )
+}
 
 private val mediumContrastLightColorScheme = lightColorScheme(
     primary = primaryLightMediumContrast,
@@ -406,7 +416,7 @@ fun GPTMobileTheme(
         ThemeMode.LIGHT -> false
     }
 
-    val colorScheme = when {
+    val baseColorScheme = when {
         useDynamicColor -> {
             val context = LocalContext.current
             if (useDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -416,12 +426,19 @@ fun GPTMobileTheme(
 
         else -> lightScheme
     }
+    val colorScheme = baseColorScheme.withFrostedSurfaces(
+        useDarkTheme = useDarkTheme
+    )
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             WindowCompat.setDecorFitsSystemWindows(window, false)
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !useDarkTheme
+            window.isNavigationBarContrastEnforced = false
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !useDarkTheme
+                isAppearanceLightNavigationBars = !useDarkTheme
+            }
         }
     }
 
@@ -429,5 +446,49 @@ fun GPTMobileTheme(
         colorScheme = colorScheme,
         typography = AppTypography,
         content = content
+    )
+}
+
+private fun ColorScheme.withFrostedSurfaces(
+    useDarkTheme: Boolean
+): ColorScheme = if (useDarkTheme) {
+    copy(
+        primary = Color(0xFFFFB77D),
+        onPrimary = Color(0xFF532200),
+        primaryContainer = Color(0xFF753800),
+        onPrimaryContainer = Color(0xFFFFDCC4),
+        background = Color(0xFF111416),
+        onBackground = Color(0xFFE8EAEC),
+        surface = Color(0xFF171A1C),
+        onSurface = Color(0xFFE8EAEC),
+        surfaceVariant = Color(0xFF2C3033),
+        onSurfaceVariant = Color(0xFFC4C8CB),
+        surfaceContainerLowest = Color(0xFF111416),
+        surfaceContainerLow = Color(0xFF191D1F),
+        surfaceContainer = Color(0xFF202426),
+        surfaceContainerHigh = Color(0xFF292D30),
+        surfaceContainerHighest = Color(0xFF32373A),
+        outline = Color(0xFF92989C),
+        outlineVariant = Color(0xFF444A4E)
+    )
+} else {
+    copy(
+        primary = Color(0xFFC65300),
+        onPrimary = Color.White,
+        primaryContainer = Color(0xFFFFDCC4),
+        onPrimaryContainer = Color(0xFF3F1600),
+        background = Color(0xFFEDF0F2),
+        onBackground = Color(0xFF1D2022),
+        surface = Color(0xFFF7F8F9),
+        onSurface = Color(0xFF1D2022),
+        surfaceVariant = Color(0xFFE3E7E9),
+        onSurfaceVariant = Color(0xFF555B5F),
+        surfaceContainerLowest = Color(0xFFFBFCFC),
+        surfaceContainerLow = Color(0xFFF5F7F8),
+        surfaceContainer = Color(0xFFEEF1F3),
+        surfaceContainerHigh = Color(0xFFE7EBED),
+        surfaceContainerHighest = Color(0xFFDFE4E7),
+        outline = Color(0xFF737A7E),
+        outlineVariant = Color(0xFFC8CED2)
     )
 }

@@ -98,6 +98,31 @@ class ChatMarkdownParserTest {
     }
 
     @Test
+    fun parseChatMarkdown_numberBetweenChineseText_staysInline() {
+        val parsed = parseChatMarkdown("分母不能为 ${'$'}0${'$'}：")
+
+        assertEquals(1, parsed.blocks.size)
+        assertEquals("0", parsed.inlineMath.single().tex)
+        assertTrue((parsed.blocks.single() as ChatMarkdownBlock.Markdown).content.contains(parsed.inlineMath.single().placeholder))
+        assertEquals("0", inlineMathPlainText(parsed.inlineMath.single().tex))
+    }
+
+    @Test
+    fun parseChatMarkdown_standaloneInlineMath_isPromotedToDisplayMath() {
+        val parsed = parseChatMarkdown(
+            """
+            Explanation
+            ${'$'}f(x) = \frac{1}{x}${'$'}
+            Choose an interval.
+            """.trimIndent()
+        )
+
+        assertEquals(3, parsed.blocks.size)
+        assertEquals("f(x) = \\frac{1}{x}", (parsed.blocks[1] as ChatMarkdownBlock.DisplayMath).tex)
+        assertTrue(parsed.inlineMath.isEmpty())
+    }
+
+    @Test
     fun parseChatMarkdown_unmatchedInlineCodeBackticks_doNotConsumeTrailingMath() {
         val parsed = parseChatMarkdown(
             """

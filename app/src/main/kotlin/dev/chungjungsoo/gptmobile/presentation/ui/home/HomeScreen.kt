@@ -6,12 +6,17 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -33,7 +38,6 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -70,10 +74,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.chungjungsoo.gptmobile.BuildConfig
 import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.database.entity.ChatRoomV2
 import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.presentation.common.PlatformCheckBoxItem
+import dev.chungjungsoo.gptmobile.presentation.theme.FrostedSurface
+import dev.chungjungsoo.gptmobile.presentation.theme.frostedContainerColor
 import dev.chungjungsoo.gptmobile.util.getPlatformName
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -187,41 +194,25 @@ fun HomeScreen(
             }
             itemsIndexed(chatListState.chats, key = { _, it -> it.id }) { idx, chatRoom ->
                 val usingPlatform = chatRoom.enabledPlatform.joinToString(", ") { uid -> platformState.getPlatformName(uid) }
-                ListItem(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onLongClick = {
-                                if (!chatListState.isSearchMode) {
-                                    homeViewModel.enableSelectionMode()
-                                    homeViewModel.selectChat(idx)
-                                }
-                            },
-                            onClick = {
-                                if (chatListState.isSelectionMode) {
-                                    homeViewModel.selectChat(idx)
-                                } else {
-                                    onExistingChatClick(chatRoom)
-                                }
-                            }
-                        )
-                        .padding(start = 8.dp, end = 8.dp)
-                        .animateItem(),
-                    headlineContent = { Text(text = chatRoom.title) },
-                    leadingContent = {
-                        if (chatListState.isSelectionMode) {
-                            Checkbox(
-                                checked = chatListState.selectedChats[idx],
-                                onCheckedChange = { homeViewModel.selectChat(idx) }
-                            )
-                        } else {
-                            Icon(
-                                ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
-                                contentDescription = stringResource(R.string.chat_icon)
-                            )
+                ChatRoomItem(
+                    title = chatRoom.title,
+                    platform = stringResource(R.string.using_certain_platform, usingPlatform),
+                    isSelectionMode = chatListState.isSelectionMode,
+                    selected = chatListState.selectedChats[idx],
+                    onLongClick = {
+                        if (!chatListState.isSearchMode) {
+                            homeViewModel.enableSelectionMode()
+                            homeViewModel.selectChat(idx)
                         }
                     },
-                    supportingContent = { Text(text = stringResource(R.string.using_certain_platform, usingPlatform)) }
+                    onClick = {
+                        if (chatListState.isSelectionMode) {
+                            homeViewModel.selectChat(idx)
+                        } else {
+                            onExistingChatClick(chatRoom)
+                        }
+                    },
+                    onSelectionChange = { homeViewModel.selectChat(idx) }
                 )
             }
         }
@@ -252,6 +243,63 @@ fun HomeScreen(
     }
 }
 
+@Composable
+private fun ChatRoomItem(
+    title: String,
+    platform: String,
+    isSelectionMode: Boolean,
+    selected: Boolean,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit,
+    onSelectionChange: () -> Unit
+) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        FrostedSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            shape = shape,
+            shadowElevation = 3.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .heightIn(min = 76.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+            if (isSelectionMode) {
+                Checkbox(checked = selected, onCheckedChange = { onSelectionChange() })
+            } else {
+                Icon(
+                    modifier = Modifier.size(40.dp),
+                    imageVector = ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
+                    contentDescription = stringResource(R.string.chat_icon)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = platform,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopAppBar(
@@ -268,8 +316,8 @@ fun HomeTopAppBar(
 ) {
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
-            scrolledContainerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else Color.Unspecified,
-            containerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.background,
+            scrolledContainerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else frostedContainerColor(strong = true),
+            containerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else frostedContainerColor(),
             titleContentColor = if (isSelectionMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground
         ),
         title = {
@@ -313,7 +361,11 @@ fun HomeTopAppBar(
                 else -> {
                     Text(
                         modifier = Modifier.padding(4.dp),
-                        text = stringResource(R.string.chats),
+                        text = if (BuildConfig.DEBUG) {
+                            "${stringResource(R.string.chats)} 0.8.4"
+                        } else {
+                            stringResource(R.string.chats)
+                        },
                         maxLines = 1,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = scrollBehavior.state.overlappedFraction),
                         overflow = TextOverflow.Ellipsis

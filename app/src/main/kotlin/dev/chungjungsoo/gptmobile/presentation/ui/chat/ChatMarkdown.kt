@@ -26,12 +26,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.mikepenz.markdown.annotator.annotatorSettings
 import com.mikepenz.markdown.compose.LocalMarkdownTypography
 import com.mikepenz.markdown.compose.LocalReferenceLinkHandler
@@ -71,6 +74,12 @@ private const val CLIPBOARD_LABEL_CODE = "code"
 private const val DISPLAY_MATH_PLACEHOLDER_PREFIX = "CHAT_MATH_DISPLAY_"
 private const val DISPLAY_MATH_PLACEHOLDER_SUFFIX = "_TOKEN"
 private const val DISPLAY_MATH_PLACEHOLDER_TEST_NONCE = "test"
+private const val MAX_INLINE_MATH_WIDTH_EM = 14f
+
+private data class InlineMathMetrics(
+    val widthEm: Float,
+    val heightEm: Float
+)
 
 @Composable
 fun ChatMarkdown(
@@ -82,6 +91,12 @@ fun ChatMarkdown(
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val parsed = remember(content) { parseChatMarkdown(content) }
+    val density = LocalDensity.current
+    val inlineMathMetrics = remember(content) { mutableStateMapOf<String, InlineMathMetrics>() }
+    val inlineFontSize = MaterialTheme.typography.bodyMedium.fontSize
+    val inlineFontSizeCssPx = remember(inlineFontSize, density.fontScale) {
+        (inlineFontSize.value * density.fontScale).coerceAtLeast(1f)
+    }
     val displayMathNonce = remember(content) { UUID.randomUUID().toString().replace("-", "") }
     val highlightsBuilder = remember(isDarkTheme) {
         Highlights.Builder().theme(SyntaxThemes.atom(isDarkTheme))
@@ -111,16 +126,25 @@ fun ChatMarkdown(
             }
         }
     }
-    val inlineContent = remember(parsed.inlineMath) {
-        parsed.inlineMath.associate { token ->
-            token.placeholder to InlineTextContent(
-                placeholder = Placeholder(
-                    width = inlineMathWidth(token.tex),
-                    height = inlineMathHeight(token.tex),
-                    placeholderVerticalAlign = PlaceholderVerticalAlign.Center
+    val inlineContent = parsed.inlineMath
+        .filter { inlineMathPlainText(it.tex) == null }
+        .associate { token ->
+        val metrics = inlineMathMetrics[token.placeholder]
+        token.placeholder to InlineTextContent(
+            placeholder = Placeholder(
+                width = (metrics?.widthEm ?: inlineMathWidth(token.tex).value).em,
+                height = (metrics?.heightEm ?: inlineMathHeight(token.tex).value).em,
+                placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter
+            )
+        ) {
+            InlineMathView(token.tex) { widthPx, heightPx ->
+                val measuredMetrics = InlineMathMetrics(
+                    widthEm = (widthPx / inlineFontSizeCssPx).coerceIn(1.2f, MAX_INLINE_MATH_WIDTH_EM),
+                    heightEm = (heightPx / inlineFontSizeCssPx).coerceIn(1.05f, 3.6f)
                 )
-            ) {
-                InlineMathView(token.tex)
+                if (inlineMathMetrics[token.placeholder] != measuredMetrics) {
+                    inlineMathMetrics[token.placeholder] = measuredMetrics
+                }
             }
         }
     }
@@ -225,9 +249,10 @@ private fun CodeBlockWithCopy(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 2.dp,
+        shadowElevation = 1.dp,
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+            color = MaterialTheme.colorScheme.outlineVariant
         )
     ) {
         Column {
@@ -329,6 +354,7 @@ private fun appendTextWithInlineMath(
     inlineMathByPlaceholder: Map<String, InlineMathToken>
 ) {
     var cursor = 0
+    var isBold = false
     while (cursor < text.length) {
         val nextToken = inlineMathByPlaceholder.keys
             .mapNotNull { placeholder ->
@@ -336,28 +362,64 @@ private fun appendTextWithInlineMath(
                 if (start == -1) null else placeholder to start
             }
             .minByOrNull { it.second }
+        val nextBoldMarker = text.indexOf("**", cursor).takeIf { it >= 0 }
+        val nextSpecialCharacter = listOfNotNull(nextToken?.second, nextBoldMarker).minOrNull()
 
-        if (nextToken == null) {
-            builder.append(text.substring(cursor))
+        if (nextSpecialCharacter == null) {
+            builder.appendMarkdownText(text.substring(cursor), isBold)
             return
         }
 
-        val (placeholder, start) = nextToken
-        if (start > cursor) {
-            builder.append(text.substring(cursor, start))
+        if (nextSpecialCharacter > cursor) {
+            builder.appendMarkdownText(text.substring(cursor, nextSpecialCharacter), isBold)
         }
-        builder.appendInlineContent(placeholder, "[math]")
-        cursor = start + placeholder.length
+
+        if (nextBoldMarker == nextSpecialCharacter) {
+            isBold = !isBold
+            cursor = nextSpecialCharacter + 2
+        } else {
+            val placeholder = nextToken?.first ?: return
+            val token = inlineMathByPlaceholder.getValue(placeholder)
+            val plainText = inlineMathPlainText(token.tex)
+            if (plainText != null) {
+                builder.append(plainText)
+            } else {
+                builder.appendInlineContent(placeholder, "[math]")
+            }
+            cursor = nextSpecialCharacter + placeholder.length
+        }
     }
 }
 
-private fun inlineMathWidth(tex: String) = (tex.length.coerceIn(2, 24) * 0.55f).em
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendMarkdownText(
+    text: String,
+    bold: Boolean
+) {
+    if (text.isEmpty()) return
+
+    if (bold) {
+        pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+        append(text)
+        pop()
+    } else {
+        append(text)
+    }
+}
+
+private fun inlineMathWidth(tex: String): androidx.compose.ui.unit.TextUnit =
+    (tex.length.coerceIn(2, 26) * 0.58f).coerceIn(1.4f, 14f).em
 
 private fun inlineMathHeight(tex: String) = when {
     tex.containsDisplaySizedMath() -> 3.2.em
     tex.containsSuperscriptOrSubscriptMath() -> 2.1.em
-    else -> 1.6.em
+    else -> 1.2.em
 }
+
+private val SIMPLE_INLINE_NUMBER = Regex("[+-]?(?:\\d+(?:[.,]\\d+)?|[.,]\\d+)")
+
+internal fun inlineMathPlainText(tex: String): String? = tex
+    .trim()
+    .takeIf(SIMPLE_INLINE_NUMBER::matches)
 
 private fun resolveDisplayMathParagraph(
     paragraphText: String,
@@ -447,17 +509,17 @@ private fun createDisplayMathPlaceholder(
 
 @Composable
 private fun chatMarkdownTypography() = markdownTypography(
-    h1 = MaterialTheme.typography.headlineMedium,
-    h2 = MaterialTheme.typography.headlineSmall,
-    h3 = MaterialTheme.typography.titleLarge,
-    h4 = MaterialTheme.typography.titleMedium,
+    h1 = MaterialTheme.typography.headlineMedium.copy(lineHeight = 32.sp),
+    h2 = MaterialTheme.typography.headlineSmall.copy(lineHeight = 28.sp),
+    h3 = MaterialTheme.typography.titleLarge.copy(lineHeight = 25.sp),
+    h4 = MaterialTheme.typography.titleMedium.copy(lineHeight = 24.sp),
     h5 = MaterialTheme.typography.titleSmall,
     h6 = MaterialTheme.typography.labelLarge,
-    text = MaterialTheme.typography.bodyMedium,
-    paragraph = MaterialTheme.typography.bodyMedium,
-    ordered = MaterialTheme.typography.bodyMedium,
-    bullet = MaterialTheme.typography.bodyMedium,
-    list = MaterialTheme.typography.bodyMedium
+    text = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+    paragraph = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+    ordered = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+    bullet = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+    list = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp)
 )
 
 @Composable

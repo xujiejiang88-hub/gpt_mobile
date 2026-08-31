@@ -15,6 +15,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -41,6 +42,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -128,6 +130,8 @@ import dev.chungjungsoo.gptmobile.data.database.entity.effectiveContent
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveRunId
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveThoughts
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveTimeline
+import dev.chungjungsoo.gptmobile.presentation.theme.frosted
+import dev.chungjungsoo.gptmobile.presentation.theme.frostedContainerColor
 import dev.chungjungsoo.gptmobile.util.isAssistantErrorMessage
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -528,16 +532,17 @@ private fun ChatMessagePair(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp),
+                    .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 GPTMobileIcon(loading = isActiveMessage && !isIdle)
                 if (enabledPlatformsInChat.size > 1) {
                     Row(
                         modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
+                            .weight(1f)
+                            .padding(start = 12.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
                     ) {
                         enabledPlatformsInChat.forEachIndexed { platformIndex, uid ->
                             PlatformButton(
@@ -546,7 +551,6 @@ private fun ChatMessagePair(
                                 selected = platformIndexState == platformIndex,
                                 onPlatformClick = { onPlatformClick(messageIndex, platformIndex) }
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
                         }
                     }
                 }
@@ -568,7 +572,9 @@ private fun ChatMessagePair(
                 runNotices = selectedRunId?.let(runNoticesById::get).orEmpty(),
                 toolEvents = toolEvents,
                 contentIdentity = "$messageIndex:$selectedPlatformUid:${selectedRunId.orEmpty()}:${selectedAssistantMessage?.activeRevisionIndex}",
-                revisionIndexLabel = selectedAssistantMessage?.let { assistantMessage ->
+                revisionIndexLabel = selectedAssistantMessage
+                    ?.takeIf { it.revisions.isNotEmpty() }
+                    ?.let { assistantMessage ->
                     val totalRevisions = assistantMessage.revisions.size + 1
                     if (assistantMessage.activeRevisionIndex == ACTIVE_REVISION_LATEST) {
                         stringResource(
@@ -653,7 +659,11 @@ private fun ChatTopBar(
                 onExportChatItemClick = onExportChatItemClick
             )
         },
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = frostedContainerColor().copy(alpha = 0.88f),
+            scrolledContainerColor = frostedContainerColor(strong = true)
+        )
     )
 }
 
@@ -858,7 +868,7 @@ fun ChatInputBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = MaterialTheme.colorScheme.surface)
+            .background(color = Color.Transparent)
     ) {
         if (selectedAttachments.isNotEmpty()) {
             FileThumbnailRow(
@@ -874,14 +884,16 @@ fun ChatInputBox(
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             lineLimits = chatInputLineLimits,
             decorator = { innerTextField ->
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .fillMaxWidth()
-                        .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(size = 24.dp))
-                        .padding(all = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .frosted(shape = RoundedCornerShape(size = 28.dp), strong = true, shadowElevation = 8.dp)
+                            .padding(all = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     IconButton(
                         enabled = chatEnabled,
                         onClick = { filePickerLauncher.launch("image/*") }
@@ -921,22 +933,36 @@ fun ChatInputBox(
                             innerTextField()
                         }
                     }
+                    val canSend = isRunning || (chatEnabled && sendButtonEnabled && hasQuestionText)
                     IconButton(
-                        enabled = isRunning || (chatEnabled && sendButtonEnabled && hasQuestionText),
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(
+                                color = if (canSend) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            ),
+                        enabled = canSend,
                         onClick = if (isRunning) onCancelButtonClick else onSendButtonClick
                     ) {
                         if (isRunning) {
                             Icon(
                                 imageVector = Icons.Filled.Stop,
-                                contentDescription = stringResource(R.string.cancel_active_runs)
+                                contentDescription = stringResource(R.string.cancel_active_runs),
+                                tint = if (canSend) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             Icon(
                                 imageVector = ImageVector.vectorResource(id = R.drawable.ic_send),
-                                contentDescription = stringResource(R.string.send)
+                                contentDescription = stringResource(R.string.send),
+                                tint = if (canSend) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
+                }
                 }
             }
         )
@@ -1212,35 +1238,19 @@ internal fun FileThumbnail(
     onRemove: () -> Unit
 ) {
     val file = File(attachment.preparedFilePath ?: attachment.sourceFilePath)
-    val isImage = isImageFile(file.extension)
-
     Column(
-        modifier = Modifier.width(72.dp),
+        modifier = Modifier.width(88.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .size(80.dp)
         ) {
-            if (isImage) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_image),
-                    contentDescription = file.name,
-                    modifier = Modifier.fillMaxSize(),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_file),
-                    contentDescription = file.name,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            AttachmentPreview(
+                filePath = file.absolutePath,
+                contentDescription = file.name,
+                modifier = Modifier.fillMaxSize()
+            )
 
             Box(
                 modifier = Modifier
@@ -1281,7 +1291,7 @@ internal fun FileThumbnail(
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier
                 .padding(top = 4.dp)
-                .width(72.dp)
+                .width(84.dp)
         )
 
         attachment.notice?.let { notice ->
@@ -1386,17 +1396,12 @@ private fun sanitizeFileName(fileName: String): String {
     return sanitized.ifEmpty { "attachment_${System.currentTimeMillis()}" }
 }
 
-private fun isImageFile(extension: String?): Boolean {
-    val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
-    return extension?.lowercase() in imageExtensions
-}
-
 @Composable
 fun ScrollToBottomButton(onClick: () -> Unit) {
     SmallFloatingActionButton(
         onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.primary
     ) {
         Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.scroll_to_bottom_icon))
     }
