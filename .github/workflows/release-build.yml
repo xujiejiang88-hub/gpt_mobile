@@ -34,6 +34,21 @@ jobs:
           sdkmanager "$latest_stable_version"
           echo "$ANDROID_SDK_ROOT/build-tools/$latest_version_number" >> $GITHUB_PATH
 
+      - name: Check signing credentials
+        id: signing
+        env:
+          APP_KEYSTORE: ${{ secrets.APP_KEYSTORE }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [[ -n "$APP_KEYSTORE" && -n "$KEY_PASSWORD" && -n "$KEY_ALIAS" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Signing credentials are available."
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Signing credentials are not configured; unsigned artifacts will be uploaded."
+          fi
+
       - name: Build Unsigned Release APK
         run: ./gradlew assembleRelease
 
@@ -41,6 +56,7 @@ jobs:
         run: ./gradlew bundleRelease
 
       - name: Generate Signing Key
+        if: steps.signing.outputs.available == 'true'
         env:
           KEYSTORE_B64: ${{ secrets.APP_KEYSTORE }}
         run: |
@@ -49,6 +65,7 @@ jobs:
         working-directory: ${{ github.workspace }}/app/build/outputs/apk/release
 
       - name: Sign Release APK
+        if: steps.signing.outputs.available == 'true'
         env:
           SIGNING_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
@@ -56,6 +73,7 @@ jobs:
         working-directory: ${{ github.workspace }}/app/build/outputs/apk/release
 
       - name: Sign Release App Bundle
+        if: steps.signing.outputs.available == 'true'
         env:
           SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           SIGNING_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -64,6 +82,7 @@ jobs:
         working-directory: ${{ github.workspace }}/app/build/outputs/bundle/release
 
       - name: Create Job Summary
+        if: steps.signing.outputs.available == 'true'
         run: |
           unsigned_hash=$(md5 -q ./apk/release/app-release-unsigned.apk)
           signed_hash=$(md5 -q ./apk/release/app-release.apk)
@@ -78,10 +97,20 @@ jobs:
         working-directory: ${{ github.workspace }}/app/build/outputs
 
       - name: Upload Signed APK
+        if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v7
         id: artifact-upload-step
         with:
           name: release-${{ github.sha }}
           path: |
             ${{ github.workspace }}/app/build/outputs/apk/release/app-release.apk
+            ${{ github.workspace }}/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload Unsigned Release Artifacts
+        if: steps.signing.outputs.available != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-unsigned-${{ github.sha }}
+          path: |
+            ${{ github.workspace }}/app/build/outputs/apk/release/app-release-unsigned.apk
             ${{ github.workspace }}/app/build/outputs/bundle/release/app-release.aab
